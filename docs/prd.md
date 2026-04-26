@@ -721,24 +721,24 @@ Title,Location,Department,Type,Module,Qualification Needed,Description
 
 ### G. Acceptance Criteria Checklist
 
-- [ ] Candidate can register with mobile OTP and fill profile
-- [ ] Candidate can browse jobs with advanced filters (module, location, qualification, type)
-- [ ] Candidate must register before applying
-- [ ] Application form has: designation, department, company, qualification, module — NO cover letter
-- [ ] Jobs have module dropdown (API, Injectables, OSD, Others)
-- [ ] Jobs have qualification_needed field
-- [ ] Admin can add single job with all new fields
-- [ ] Admin can bulk upload jobs via CSV with new columns
-- [ ] Admin can view all applications in table format
-- [ ] Admin can filter/search applications
-- [ ] Admin can change application status
-- [ ] Talent pool: registered candidates without applications visible to admin
-- [ ] "Sync to Google Sheets" button syncs all applications + talent pool data
-- [ ] Google Sheets has correct columns and formatted data
-- [ ] Mobile-responsive on all screens
-- [ ] OTP verification works end-to-end
-- [ ] Duplicate application prevention works
-- [ ] Filter results view shows count and active filters
+- [x] Candidate can register with mobile OTP and fill profile
+- [x] Candidate can browse jobs with advanced filters (module, location, qualification, type)
+- [x] Candidate must register before applying
+- [x] Application form has: designation, department, company, qualification, module — NO cover letter
+- [x] Jobs have module dropdown (API, Injectables, OSD, Others)
+- [x] Jobs have qualification_needed field
+- [x] Admin can add single job with all new fields
+- [x] Admin can bulk upload jobs via CSV with new columns
+- [x] Admin can view all applications in table format
+- [x] Admin can filter/search applications
+- [x] Admin can change application status
+- [x] Talent pool: registered candidates without applications visible to admin
+- [x] "Sync to Google Sheets" button syncs all applications + talent pool data
+- [x] Google Sheets has correct columns and formatted data
+- [x] Mobile-responsive on all screens
+- [x] OTP verification works end-to-end
+- [x] Duplicate application prevention works
+- [x] Filter results view shows count and active filters
 
 ---
 
