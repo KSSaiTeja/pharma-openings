@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ChevronDown, FileText, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   APPLICATION_STATUS_LABELS,
@@ -49,12 +49,21 @@ import {
   applicationQualification,
   applicationResumeUrl,
 } from "@/app/admin/lib/applicationFields";
+import {
+  ADMIN_APPLICATIONS_PAGE_SIZE,
+  adminApplicationsSelect,
+  applyAdminApplicationsFilters,
+} from "@/app/admin/lib/applicationsAdminQuery";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/types/database.types";
 
 type Props = {
   supabase: SupabaseClient<Database>;
   onStatsBump: () => void;
+  /** Appends only new Application IDs from this page to the **Applications** sheet tab (deduped). */
+  onSyncApplications: (payload: { applicationIds: string[]; page: number }) => void;
+  /** When non-null, a sync is in progress (any tab); buttons stay disabled to avoid overlapping requests. */
+  syncingTarget: null | "applications" | "talent_pool";
 };
 
 function downloadCsv(filename: string, rows: Record<string, string>[]) {
@@ -106,7 +115,7 @@ function CellText({ text, className }: { text: string; className?: string }) {
   );
 }
 
-export function ApplicationsTab({ supabase, onStatsBump }: Props) {
+export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syncingTarget }: Props) {
   const [rows, setRows] = useState<AdminApplicationRow[]>([]);
   const [jobs, setJobs] = useState<{ id: string; title: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,24 +134,76 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
   const [bulkStatus, setBulkStatus] = useState<string>("Reviewed");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [expandedCandidate, setExpandedCandidate] = useState<AdminApplicationRow | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const loadRef = useRef<() => Promise<void>>(async () => {});
+  const realtimeDebounceRef = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
-    const { data, error } = await supabase
-      .from("applications")
-      .select("*, jobs(title, module, location)")
+    const select = adminApplicationsSelect(moduleFilter.size);
+    const filterCtx = {
+      jobFilter,
+      statusFilter,
+      moduleFilter,
+      dateFrom,
+      dateTo,
+      search,
+      startOfDayIso,
+      endOfDayIso,
+    };
+
+    let countQ = supabase.from("applications").select(select, { count: "exact", head: true });
+    countQ = applyAdminApplicationsFilters(countQ, filterCtx);
+    const { count, error: cErr } = await countQ;
+    if (cErr) {
+      setErr(cErr.message);
+      setRows([]);
+      setTotalCount(0);
+      setLoading(false);
+      return;
+    }
+
+    const total = count ?? 0;
+    setTotalCount(total);
+    const pages = Math.max(1, Math.ceil(total / ADMIN_APPLICATIONS_PAGE_SIZE));
+    if (page > pages) {
+      startTransition(() => {
+        setPage(pages);
+      });
+      setLoading(false);
+      return;
+    }
+
+    const start = (page - 1) * ADMIN_APPLICATIONS_PAGE_SIZE;
+    const end = start + ADMIN_APPLICATIONS_PAGE_SIZE - 1;
+
+    let dataQ = supabase.from("applications").select(select);
+    dataQ = applyAdminApplicationsFilters(dataQ, filterCtx);
+    const { data, error: dErr } = await dataQ
       .order("created_at", { ascending: false })
-      .limit(1000);
-    if (error) {
-      setErr(error.message);
+      .range(start, end);
+
+    if (dErr) {
+      setErr(dErr.message);
       setRows([]);
     } else {
-      setRows((data as AdminApplicationRow[]) ?? []);
+      setRows((data as unknown as AdminApplicationRow[]) ?? []);
     }
-    const { data: jobRows } = await supabase.from("jobs").select("id, title").order("title", { ascending: true });
-    setJobs(jobRows ?? []);
     setLoading(false);
+  }, [supabase, page, statusFilter, jobFilter, moduleFilter, dateFrom, dateTo, search]);
+
+  loadRef.current = load;
+
+  useEffect(() => {
+    void supabase
+      .from("jobs")
+      .select("id, title")
+      .order("title", { ascending: true })
+      .limit(5000)
+      .then(({ data }) => setJobs(data ?? []));
   }, [supabase]);
 
   useEffect(() => {
@@ -150,6 +211,12 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
       void load();
     });
   }, [load]);
+
+  useEffect(() => {
+    startTransition(() => {
+      setPage(1);
+    });
+  }, [statusFilter, jobFilter, moduleFilter, dateFrom, dateTo, search]);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -163,41 +230,26 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
   useEffect(() => {
     const channel = supabase
       .channel("admin-applications-live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "applications" },
-        () => {
-          void load();
-          onStatsBump();
-        },
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "applications" }, () => {
+        onStatsBump();
+        if (realtimeDebounceRef.current != null) {
+          window.clearTimeout(realtimeDebounceRef.current);
+        }
+        realtimeDebounceRef.current = window.setTimeout(() => {
+          realtimeDebounceRef.current = null;
+          void loadRef.current();
+        }, 450);
+      })
       .subscribe();
     return () => {
+      if (realtimeDebounceRef.current != null) {
+        window.clearTimeout(realtimeDebounceRef.current);
+      }
       void supabase.removeChannel(channel);
     };
-  }, [supabase, load, onStatsBump]);
+  }, [supabase, onStatsBump]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const statusArr = statusFilter.size ? [...statusFilter] : null;
-    const moduleArr = moduleFilter.size ? [...moduleFilter] : null;
-    const fromTs = dateFrom ? startOfDayIso(dateFrom) : null;
-    const toTs = dateTo ? endOfDayIso(dateTo) : null;
-
-    return rows.filter((r) => {
-      if (jobFilter !== "all" && r.job_id !== jobFilter) return false;
-      if (statusArr && !statusArr.includes(r.status?.toLowerCase() ?? "")) return false;
-      if (fromTs && r.created_at < fromTs) return false;
-      if (toTs && r.created_at > toTs) return false;
-      const mod = (r.jobs?.module ?? "Others").trim() || "Others";
-      if (moduleArr && !moduleArr.includes(mod)) return false;
-      if (q) {
-        const blob = `${r.full_name} ${r.email} ${r.mobile}`.toLowerCase();
-        if (!blob.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [rows, search, statusFilter, jobFilter, moduleFilter, dateFrom, dateTo]);
+  const totalPages = Math.max(1, Math.ceil(totalCount / ADMIN_APPLICATIONS_PAGE_SIZE));
 
   const toggleSelect = (id: string, on: boolean) => {
     setSelected((prev) => {
@@ -209,18 +261,18 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
   };
 
   const allVisibleSelected =
-    filtered.length > 0 && filtered.every((r) => selected.has(r.id));
+    rows.length > 0 && rows.every((r) => selected.has(r.id));
   const toggleAllVisible = () => {
     if (allVisibleSelected) {
       setSelected((prev) => {
         const n = new Set(prev);
-        filtered.forEach((r) => n.delete(r.id));
+        rows.forEach((r) => n.delete(r.id));
         return n;
       });
     } else {
       setSelected((prev) => {
         const n = new Set(prev);
-        filtered.forEach((r) => n.add(r.id));
+        rows.forEach((r) => n.add(r.id));
         return n;
       });
     }
@@ -229,7 +281,10 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
   const updateStatus = useCallback(
     async (id: string, label: string) => {
       const db = statusToDb(label);
-      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status: db } : r)));
+      const statusChangedAt = new Date().toISOString();
+      setRows((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: db, status_changed_at: statusChangedAt } : r)),
+      );
       const { error } = await supabase.from("applications").update({ status: db }).eq("id", id);
       if (error) {
         setErr(error.message);
@@ -258,12 +313,12 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
     onStatsBump();
   };
 
-  const exportSelected = () => {
-    const pick = filtered.filter((r) => selected.has(r.id));
-    if (pick.length === 0) return;
+  const exportCurrentPage = () => {
+    if (rows.length === 0) return;
     downloadCsv(
-      `applications-export-${new Date().toISOString().slice(0, 10)}.csv`,
-      pick.map((r) => ({
+      `applications-page-${page}-${new Date().toISOString().slice(0, 10)}.csv`,
+      rows.map((r) => ({
+        "Application ID": r.id,
         Timestamp: formatAppliedAt(r.created_at),
         "Full Name": r.full_name,
         Email: r.email,
@@ -304,7 +359,11 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
     <TooltipProvider delayDuration={200} skipDelayDuration={80}>
       <div className="space-y-4">
       {err ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+        <p
+          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+          role="alert"
+          aria-live="assertive"
+        >
           {err}
         </p>
       ) : null}
@@ -410,21 +469,44 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <Button type="button" variant="outline" size="sm" onClick={() => setBulkOpen(true)} disabled={selected.size === 0}>
-          Change status ({selected.size})
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={exportSelected} disabled={selected.size === 0}>
-          Export CSV ({selected.size})
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Button type="button" variant="outline" size="sm" onClick={() => setBulkOpen(true)} disabled={selected.size === 0}>
+            Change status ({selected.size})
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={exportCurrentPage} disabled={rows.length === 0}>
+            Export this page ({rows.length})
+          </Button>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => onSyncApplications({ applicationIds: rows.map((r) => r.id), page })}
+          disabled={syncingTarget !== null || rows.length === 0 || loading}
+        >
+          {syncingTarget === "applications"
+            ? `Syncing applications (page ${page})…`
+            : `Sync applications — page ${page}`}
         </Button>
       </div>
 
+      {!loading && totalCount > 0 ? (
+        <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <span className="font-medium text-zinc-700 dark:text-zinc-300">Applications sheet · Page {page}</span> —{" "}
+          <span className="tabular-nums">{rows.length}</span> of{" "}
+          <span className="tabular-nums">{totalCount}</span> matching rows. Appends to the{" "}
+          <span className="font-medium">Applications</span> tab only; skips rows already present (same Application ID). Use{" "}
+          <span className="font-medium">Talent pool</span> for the other tab.
+        </p>
+      ) : null}
+
       <div className="min-w-0 space-y-2">
-        {!loading && filtered.length > 0 ? (
+        {!loading && rows.length > 0 ? (
           <div className="flex items-center gap-3 rounded-lg border border-zinc-200/80 bg-white px-3 py-2.5 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
-            <Checkbox checked={allVisibleSelected} onCheckedChange={() => toggleAllVisible()} aria-label="Select all visible" />
+            <Checkbox checked={allVisibleSelected} onCheckedChange={() => toggleAllVisible()} aria-label="Select all on this page" />
             <span className="text-xs font-medium tracking-tight text-zinc-600 dark:text-zinc-400">
-              Select all <span className="tabular-nums">({filtered.length})</span>
+              Select all on page <span className="tabular-nums">({rows.length})</span>
             </span>
           </div>
         ) : null}
@@ -515,14 +597,14 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
                     Loading applications…
                   </TableCell>
                 </TableRow>
-              ) : filtered.length === 0 ? (
+              ) : totalCount === 0 ? (
                 <TableRow className="border-0 hover:bg-transparent">
                   <TableCell colSpan={TABLE_COLS} className="py-14 text-center text-sm text-zinc-500 dark:text-zinc-400">
                     No applications match these filters.
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((r, idx) => {
+                rows.map((r, idx) => {
                   const resumeUrl = applicationResumeUrl(r);
                   return (
                     <TableRow
@@ -539,7 +621,7 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
                         </div>
                       </TableCell>
                       <TableCell className="max-w-0 align-top tabular-nums text-right text-zinc-400 dark:text-zinc-500">
-                        {idx + 1}
+                        {(page - 1) * ADMIN_APPLICATIONS_PAGE_SIZE + idx + 1}
                       </TableCell>
                       <TableCell className="max-w-0 align-top font-medium text-zinc-900 dark:text-zinc-50">
                         <button
@@ -621,6 +703,34 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
             </TableBody>
           </Table>
         </div>
+
+        {!loading && totalCount > 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200/80 pt-4 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+            <span className="tabular-nums">
+              {totalCount.toLocaleString()} total · Page {page} of {totalPages}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
@@ -630,9 +740,9 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
             <DialogDescription>Set status for {selected.size} selected application(s).</DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-2">
-            <Label>New status</Label>
+            <Label htmlFor="bulk-app-status">New status</Label>
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
-              <SelectTrigger>
+              <SelectTrigger id="bulk-app-status">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -712,6 +822,14 @@ export function ApplicationsTab({ supabase, onStatsBump }: Props) {
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">Status</p>
                   <p className="font-medium">{statusFromDb(expandedCandidate.status)}</p>
                 </div>
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Status last changed</p>
+                <p className="font-medium">
+                  {expandedCandidate.status_changed_at
+                    ? formatAppliedAt(expandedCandidate.status_changed_at)
+                    : "—"}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">Resume</p>

@@ -1,15 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { JobCard } from "../components/landing/JobCard";
 import {
-  fetchAllActiveJobs,
+  fetchActiveJobFilterOptions,
+  fetchJobsPage,
   jobCardTagsFromRow,
   truncateJobDescription,
 } from "@/src/lib/jobs";
 import {
+  EMPTY_JOBS_FILTER_OPTIONS,
   buildJobsQueryString,
-  deriveJobsFilterOptions,
-  filterJobs,
   getActiveFilterCount,
   getPagination,
   parseJobsFilterState,
@@ -19,6 +20,11 @@ import { JobsFiltersForm } from "./JobsFiltersForm";
 import type { JobRow } from "@/types/database.types";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "Jobs | PharmaOpenings",
+  description:
+    "Browse active pharmaceutical jobs by department, location, and role type on PharmaOpenings.",
+};
 
 function EmptyResultsIllustration() {
   return (
@@ -51,17 +57,23 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   const sp = (await searchParams) ?? {};
   const filterState = parseJobsFilterState(sp);
 
-  const { data, error } = await fetchAllActiveJobs();
-  const allJobs = data ?? [];
-  const options = deriveJobsFilterOptions(allJobs);
-  const filtered = filterJobs(allJobs, filterState);
-  const { totalPages, currentPage, start, end } = getPagination(
-    filtered.length,
+  const [optionsResult, listingResult] = await Promise.all([
+    fetchActiveJobFilterOptions(),
+    fetchJobsPage(filterState),
+  ]);
+
+  const options = optionsResult.data ?? EMPTY_JOBS_FILTER_OPTIONS;
+  const loadError = Boolean(listingResult.error ?? optionsResult.error);
+  const totalMatching = listingResult.count ?? 0;
+  const paginatedJobs = listingResult.data ?? [];
+  const activeFilterCount = getActiveFilterCount(filterState);
+  const { totalPages, currentPage } = getPagination(
+    Math.max(0, totalMatching),
     filterState.page,
   );
-  const paginatedJobs = filtered.slice(start, end);
-  const loadError = Boolean(error);
-  const activeFilterCount = getActiveFilterCount(filterState);
+  const noFilters = activeFilterCount === 0;
+  const globallyEmpty = !loadError && noFilters && totalMatching === 0;
+  const filterEmpty = !loadError && !noFilters && totalMatching === 0;
 
   return (
     <main className="relative flex flex-1 flex-col px-4 pb-16 pt-24 sm:px-6 lg:pt-28">
@@ -80,7 +92,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
         </header>
 
         <details className="mt-10 rounded-[1.25rem] border border-[#ebe7f4] bg-white p-4 shadow-[0_10px_34px_rgba(30,27,54,0.06)] lg:hidden">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-1 py-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet">
             <span className="text-sm font-semibold tracking-wide text-[#1e1b36]">Advanced filters</span>
             <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#6d6ae8]/10 px-2 text-xs font-semibold text-[#5d58df]">
               {activeFilterCount}
@@ -94,7 +106,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
         <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-start">
           <aside className="hidden w-full max-w-sm shrink-0 rounded-[1.5rem] border border-[#ebe7f4] bg-white/95 p-5 shadow-[0_12px_40px_rgba(30,27,54,0.06)] lg:block">
             <details open>
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 pb-4">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-1 py-1 pb-4 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet">
                 <span className="text-sm font-semibold tracking-wide text-[#1e1b36]">Advanced filters</span>
                 <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#6d6ae8]/10 px-2 text-xs font-semibold text-[#5d58df]">
                   {activeFilterCount}
@@ -118,7 +130,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                     x = jobs on current page slice, y = all jobs that match current filters before pagination.
                   */}
                   Showing <span className="font-semibold text-[#1e1b36]">{paginatedJobs.length}</span> of{" "}
-                  <span className="font-semibold text-[#1e1b36]">{filtered.length}</span> jobs
+                  <span className="font-semibold text-[#1e1b36]">{totalMatching}</span> jobs
                 </p>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[#6d6ae8]/10 px-2 text-xs font-semibold text-[#5d58df]">
@@ -126,7 +138,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                   </span>
                   <Link
                     href="/jobs"
-                    className="inline-flex h-8 items-center justify-center rounded-full border border-[#e4dff5] bg-white px-3 text-xs font-semibold text-[#6b6880] transition-[color,background-color,border-color] hover:border-[#6d6ae8]/30 hover:bg-[#faf8ff] hover:text-[#1e1b36]"
+                    className="inline-flex h-11 min-h-11 items-center justify-center rounded-full border border-[#e4dff5] bg-white px-3 text-xs font-semibold text-[#6b6880] transition-[color,background-color,border-color] hover:border-[#6d6ae8]/30 hover:bg-[#faf8ff] hover:text-[#1e1b36] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
                   >
                     Clear all
                   </Link>
@@ -135,45 +147,45 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
             ) : null}
 
             <ul className="flex flex-col gap-4 pb-4">
-              {!loadError && allJobs.length === 0 ? (
+              {!loadError && globallyEmpty ? (
                 <li className="overflow-hidden rounded-[1.75rem] border border-[#ebe7f4] bg-white px-8 py-16 text-center shadow-[0_8px_30px_rgba(30,27,54,0.04)] sm:py-20">
                   <EmptyResultsIllustration />
                   <p className="text-lg font-semibold tracking-tight text-[#1e1b36]">
                     No openings currently
                   </p>
                   <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[#6b6880]">
-                    No active jobs are available right now. Register your profile and we&apos;ll notify you when matching roles open.
+                    Don&apos;t see a matching role? Register your profile and we&apos;ll reach out when the right opportunity comes.
                   </p>
                   <Link
-                    href="/register"
-                    className="mt-8 inline-flex items-center justify-center rounded-full bg-[#1e1b36] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(30,27,54,0.18)] transition-[filter,transform] hover:brightness-110 active:translate-y-px"
+                    href="/register?source=jobs-empty"
+                    className="mt-8 inline-flex min-h-11 items-center justify-center rounded-full bg-[#1e1b36] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(30,27,54,0.18)] transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
                   >
-                    Register for future openings
+                    Register your profile
                   </Link>
                 </li>
               ) : null}
 
-              {!loadError && allJobs.length > 0 && filtered.length === 0 ? (
+              {!loadError && filterEmpty ? (
                 <li className="overflow-hidden rounded-[1.75rem] border border-[#ebe7f4] bg-white px-8 py-16 text-center shadow-[0_8px_30px_rgba(30,27,54,0.04)] sm:py-20">
                   <EmptyResultsIllustration />
                   <p className="text-lg font-semibold tracking-tight text-[#1e1b36]">
                     No jobs match your filters
                   </p>
                   <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[#6b6880]">
-                    Try adjusting your criteria, or register your profile for future openings.
+                    Don&apos;t see a matching role? Try adjusting your criteria, or register your profile and we&apos;ll reach out when the right opportunity comes.
                   </p>
                   <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
                     <Link
                       href="/jobs"
-                      className="inline-flex items-center justify-center rounded-full border border-[#ebe7f4] bg-[#faf8ff] px-6 py-2.5 text-sm font-semibold text-[#1e1b36] transition-colors hover:border-[#6d6ae8]/35"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#ebe7f4] bg-[#faf8ff] px-6 py-2.5 text-sm font-semibold text-[#1e1b36] transition-colors hover:border-[#6d6ae8]/35 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
                     >
                       Clear all filters
                     </Link>
                     <Link
-                      href="/register"
-                      className="inline-flex items-center justify-center rounded-full bg-[#1e1b36] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(30,27,54,0.18)] transition-[filter,transform] hover:brightness-110 active:translate-y-px"
+                      href="/register?source=jobs-filter-empty"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#1e1b36] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(30,27,54,0.18)] transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
                     >
-                      Register for future openings
+                      Register your profile
                     </Link>
                   </div>
                 </li>
@@ -186,24 +198,25 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                       title={job.title}
                       company="PharmaOpenings"
                       tags={jobCardTagsFromRow(job)}
-                      salaryDisplay="Open listing"
                       location={job.location}
                       applyHref={`/apply/${job.id}`}
                       ctaLabel="Apply now"
                       qualificationLabel={job.qualification_needed}
                       descriptionPreview={truncateJobDescription(job.description)}
                       detailHref={`/jobs/${job.id}`}
+                      jobId={job.id}
                     />
                   </li>
                 ))}
             </ul>
 
-            {!loadError && filtered.length > 0 && totalPages > 1 ? (
+            {!loadError && totalMatching > 0 && totalPages > 1 ? (
               <nav className="mt-4 flex flex-wrap items-center justify-center gap-2 border-t border-[#ebe7f4] pt-6" aria-label="Jobs pagination">
                 <Link
                   href={`/jobs${buildJobsQueryString(filterState, { page: currentPage - 1 })}`}
                   aria-disabled={currentPage <= 1}
-                  className={`inline-flex h-9 items-center justify-center rounded-full border px-4 text-sm font-medium ${
+                  tabIndex={currentPage <= 1 ? -1 : undefined}
+                  className={`inline-flex h-11 min-h-11 items-center justify-center rounded-full border px-4 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet ${
                     currentPage <= 1
                       ? "pointer-events-none border-[#f0ecfb] text-[#b5b0c7]"
                       : "border-[#e4dff5] bg-white text-[#4f4b67] hover:border-[#6d6ae8]/30 hover:bg-[#faf8ff]"
@@ -217,7 +230,8 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                 <Link
                   href={`/jobs${buildJobsQueryString(filterState, { page: currentPage + 1 })}`}
                   aria-disabled={currentPage >= totalPages}
-                  className={`inline-flex h-9 items-center justify-center rounded-full border px-4 text-sm font-medium ${
+                  tabIndex={currentPage >= totalPages ? -1 : undefined}
+                  className={`inline-flex h-11 min-h-11 items-center justify-center rounded-full border px-4 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet ${
                     currentPage >= totalPages
                       ? "pointer-events-none border-[#f0ecfb] text-[#b5b0c7]"
                       : "border-[#e4dff5] bg-white text-[#4f4b67] hover:border-[#6d6ae8]/30 hover:bg-[#faf8ff]"

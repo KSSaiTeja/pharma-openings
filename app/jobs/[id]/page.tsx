@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import { JobApplyLink } from "@/app/components/JobApplyLink";
+import { JobSaveButton } from "@/app/components/JobSaveButton";
 import { fetchJobById } from "@/src/lib/jobs";
+import { absoluteUrl } from "@/src/lib/siteUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -38,17 +40,27 @@ function JobDetailItem({
 export async function generateMetadata({ params }: JobDetailPageProps): Promise<Metadata> {
   const { id } = await params;
   const { data: job, error } = await fetchJobById(id);
+  const url = absoluteUrl(`/jobs/${id}`);
   if (error || !job) {
     return {
       title: "Job not found | PharmaOpenings",
+      robots: { index: false, follow: false },
     };
   }
 
+  const description = job.description.slice(0, 160);
+  const title = job.is_active ? `${job.title} | PharmaOpenings` : `${job.title} (Inactive) | PharmaOpenings`;
+
   return {
-    title: job.is_active
-      ? `${job.title} | PharmaOpenings`
-      : `${job.title} (Inactive) | PharmaOpenings`,
-    description: job.description.slice(0, 160),
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      type: "article",
+    },
   };
 }
 
@@ -82,8 +94,38 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     notFound();
   }
 
+  const jobPostingLd = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: job.title,
+    description: job.description,
+    datePosted: new Date(job.created_at).toISOString(),
+    employmentType: job.type ?? "FULL_TIME",
+    hiringOrganization: {
+      "@type": "Organization",
+      name: "PharmaOpenings",
+    },
+    jobLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: job.location,
+        addressCountry: "IN",
+      },
+    },
+    url: absoluteUrl(`/jobs/${job.id}`),
+    industry: job.department ?? undefined,
+    qualifications: job.qualification_needed ?? undefined,
+  };
+
   return (
     <main className="relative flex flex-1 flex-col px-4 pb-16 pt-24 sm:px-6 lg:pt-28">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jobPostingLd).replaceAll("<", "\\u003c"),
+        }}
+      />
       <div className="mx-auto w-full max-w-3xl flex-1 pb-16">
         <Link
           href="/jobs"
@@ -106,9 +148,12 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
             ) : null}
           </div>
 
-          <h1 className="mt-5 text-3xl font-semibold tracking-tight text-[#1e1b36] sm:text-[2rem] sm:leading-tight">
-            {job.title}
-          </h1>
+          <div className="mt-5 flex flex-wrap items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 text-3xl font-semibold tracking-tight text-[#1e1b36] sm:text-[2rem] sm:leading-tight">
+              {job.title}
+            </h1>
+            <JobSaveButton jobId={job.id} variant="pill" />
+          </div>
 
           <section className="mt-6">
             <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#6b6880]">
@@ -144,7 +189,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
           </section>
 
           {job.is_active ? (
-            <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <JobApplyLink jobId={job.id} />
               <Link
                 href="/jobs"

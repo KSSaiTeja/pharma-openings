@@ -25,6 +25,14 @@ export type JobsFilterOptions = {
   qualifications: string[];
 };
 
+export const EMPTY_JOBS_FILTER_OPTIONS: JobsFilterOptions = {
+  modules: [],
+  locations: [],
+  departments: [],
+  types: [],
+  qualifications: [],
+};
+
 function normalizeText(value: string): string {
   return value.trim().toLowerCase();
 }

@@ -5,7 +5,18 @@ export type DepartmentTaxonomy = {
   designations: readonly string[];
 };
 
+/** Shown on every department’s sub-department list (in addition to taxonomy-specific options). */
+const EXTRA_SUB_DEPARTMENTS = ["Fresher", "Not working"] as const;
+
 export const CANDIDATE_DEPARTMENT_TAXONOMY: Record<string, DepartmentTaxonomy> = {
+  Fresher: {
+    subDepartments: ["General", "Not working"],
+    designations: ["Fresher", "Intern", "Trainee"],
+  },
+  "Not working": {
+    subDepartments: ["Career break", "Not working"],
+    designations: ["Not applicable", "Homemaker"],
+  },
   "Production OSD (Oral Solid Dosage)": {
     subDepartments: [
       "Compression Operator",
@@ -571,7 +582,21 @@ function appendOther(options: readonly string[]): string[] {
 
 export function getSubDepartmentOptions(department: string): string[] {
   const match = CANDIDATE_DEPARTMENT_TAXONOMY[department];
-  return appendOther(match?.subDepartments ?? []);
+  const merged: string[] = [];
+  const seen = new Set<string>();
+  for (const x of match?.subDepartments ?? []) {
+    if (!seen.has(x)) {
+      seen.add(x);
+      merged.push(x);
+    }
+  }
+  for (const x of EXTRA_SUB_DEPARTMENTS) {
+    if (!seen.has(x)) {
+      seen.add(x);
+      merged.push(x);
+    }
+  }
+  return appendOther(merged);
 }
 
 export function getDesignationOptions(department: string): string[] {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useCandidate } from "@/src/context/CandidateContext";
@@ -30,6 +30,12 @@ import {
   getSubDepartmentOptions,
   resolveCandidateTaxonomySelection,
 } from "@/src/lib/candidateTaxonomy";
+import { registerSubmitSchema } from "@/src/lib/schemas/forms";
+import {
+  RESUME_ACCEPT_ATTR,
+  inferResumeContentType,
+  resumeValidationMessage,
+} from "@/src/lib/resumeUpload";
 import type { CandidateRow } from "@/types/database.types";
 
 const QUALIFICATIONS = [
@@ -46,41 +52,13 @@ const QUALIFICATIONS = [
 
 const MODULES = ["API", "Injectables", "OSD", "Others"] as const;
 
-const RESUME_MAX_BYTES = 5 * 1024 * 1024;
-const RESUME_ACCEPT_ATTR =
-  ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
-const ALLOWED_RESUME_MIME = new Set([
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-]);
-
 type VerifyOtpResponse = {
   verified?: boolean;
   candidate?: CandidateRow | null;
 };
 
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
-
 function normalizeMobile(input: string) {
   return input.trim();
-}
-
-function resumeValidationMessage(file: File): string | null {
-  if (file.size > RESUME_MAX_BYTES) {
-    return "That file is larger than 5MB. Choose a smaller file or a shorter PDF.";
-  }
-  const lower = file.name.toLowerCase();
-  const extOk = lower.endsWith(".pdf") || lower.endsWith(".doc") || lower.endsWith(".docx");
-  const mime = (file.type || "").trim();
-  const mimeOk = mime ? ALLOWED_RESUME_MIME.has(mime) : extOk;
-  if (!extOk && !mimeOk) {
-    return "Please choose a PDF or Word file (.pdf, .doc, .docx).";
-  }
-  return null;
 }
 
 function isQualification(value: string): value is (typeof QUALIFICATIONS)[number] {
@@ -89,10 +67,17 @@ function isQualification(value: string): value is (typeof QUALIFICATIONS)[number
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, refreshCandidate } = useCandidate();
+  const initialPendingMobile = getOtpPendingMobile();
+  const registrationSource = searchParams.get("source");
+  const fromEmptyState =
+    registrationSource === "home-empty" ||
+    registrationSource === "jobs-empty" ||
+    registrationSource === "jobs-filter-empty";
 
   const [step, setStep] = useState<1 | 2>(1);
-  const [mobile, setMobile] = useState("");
+  const [mobile, setMobile] = useState(() => initialPendingMobile ?? "");
   const [otp, setOtp] = useState("");
   const [resendIn, setResendIn] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -110,10 +95,13 @@ export default function RegisterPage() {
   const [company, setCompany] = useState("");
   const [preferredLocation, setPreferredLocation] = useState("");
   const [qualification, setQualification] = useState<string>(QUALIFICATIONS[0]);
+  const [qualificationCustom, setQualificationCustom] = useState("");
+  const [noticePeriod, setNoticePeriod] = useState("");
   const [preferred, setPreferred] = useState<string[]>(["Others"]);
+  const [preferredModulesOthersNote, setPreferredModulesOthersNote] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeHint, setResumeHint] = useState<string | null>(null);
-  const [otpSentOnce, setOtpSentOnce] = useState(false);
+  const [otpSentOnce, setOtpSentOnce] = useState(() => Boolean(initialPendingMobile));
   const [restoredDraftBanner, setRestoredDraftBanner] = useState(false);
 
   const resumeInputRef = useRef<HTMLInputElement | null>(null);
@@ -166,6 +154,9 @@ export default function RegisterPage() {
       setCompany(draft.company);
       setPreferredLocation(draft.preferredLocation);
       setQualification(isQualification(draft.qualification) ? draft.qualification : QUALIFICATIONS[0]);
+      setQualificationCustom(draft.qualificationCustom ?? "");
+      setNoticePeriod(draft.noticePeriod ?? "");
+      setPreferredModulesOthersNote(draft.preferredModulesOthersNote ?? "");
       setPreferred(mods.length ? mods : ["Others"]);
       setOtpSentOnce(true);
       setStep(2);
@@ -200,7 +191,10 @@ export default function RegisterPage() {
         company,
         preferredLocation,
         qualification,
+        qualificationCustom,
+        noticePeriod,
         preferred,
+        preferredModulesOthersNote,
       });
     }, 450);
 
@@ -222,7 +216,10 @@ export default function RegisterPage() {
     company,
     preferredLocation,
     qualification,
+    qualificationCustom,
+    noticePeriod,
     preferred,
+    preferredModulesOthersNote,
   ]);
 
   const canSendOtp = useMemo(() => normalizeMobile(mobile).length >= 8, [mobile]);
@@ -250,6 +247,13 @@ export default function RegisterPage() {
     setDesignation(nextDesignation);
     if (nextDesignation !== OTHER_OPTION) {
       setDesignationCustom("");
+    }
+  }, []);
+
+  const onQualificationChange = useCallback((next: string) => {
+    setQualification(next);
+    if (next !== "Other") {
+      setQualificationCustom("");
     }
   }, []);
 
@@ -324,6 +328,12 @@ export default function RegisterPage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!preferred.includes("Others")) {
+      setPreferredModulesOthersNote("");
+    }
+  }, [preferred]);
+
   const onResumeSelected = useCallback((file: File | null) => {
     setResumeHint(null);
     if (!file) {
@@ -343,26 +353,42 @@ export default function RegisterPage() {
   const submitProfile = useCallback(async () => {
     setError(null);
     setResumeHint(null);
-
-    const name = fullName.trim();
-    if (!name || name.length > 100) {
-      setError("Full name is required (max 100 characters).");
-      return;
-    }
-
-    const mail = email.trim();
-    if (!mail || !isValidEmail(mail)) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-
-    const taxonomy = resolveCandidateTaxonomySelection({
+    const parsed = registerSubmitSchema.safeParse({
+      fullName,
+      email,
+      mobile: normalizeMobile(mobile),
       department,
       subDepartment,
       designation,
       departmentCustom,
       subDepartmentCustom,
       designationCustom,
+      company,
+      preferredLocation,
+      qualification,
+      qualificationCustom,
+      noticePeriod,
+      preferred,
+      preferredModulesOthersNote,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Please correct the highlighted fields.");
+      return;
+    }
+    const payload = parsed.data;
+
+    if (!resumeFile) {
+      setError("Please upload your resume (PDF or Word, max 5MB).");
+      return;
+    }
+
+    const taxonomy = resolveCandidateTaxonomySelection({
+      department: payload.department,
+      subDepartment: payload.subDepartment,
+      designation: payload.designation,
+      departmentCustom: payload.departmentCustom ?? "",
+      subDepartmentCustom: payload.subDepartmentCustom ?? "",
+      designationCustom: payload.designationCustom ?? "",
     });
 
     if (!taxonomy.department) {
@@ -390,23 +416,20 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!qualification) {
-      setError("Please select your highest qualification.");
+    const resumeErr = resumeValidationMessage(resumeFile);
+    if (resumeErr) {
+      setResumeHint(resumeErr);
       return;
     }
 
-    if (!preferred.length) {
-      setError("Please select at least one preferred module.");
-      return;
-    }
+    const highestQualification =
+      payload.qualification === "Other"
+        ? (payload.qualificationCustom ?? "").trim()
+        : payload.qualification;
 
-    if (resumeFile) {
-      const resumeErr = resumeValidationMessage(resumeFile);
-      if (resumeErr) {
-        setResumeHint(resumeErr);
-        return;
-      }
-    }
+    const preferredModulesForDb = payload.preferred.map((p) =>
+      p === "Others" ? `Others (${(payload.preferredModulesOthersNote ?? "").trim()})` : p,
+    );
 
     const supabase = createSupabaseClient();
     if (!supabase) {
@@ -420,18 +443,19 @@ export default function RegisterPage() {
       .from("candidates")
       .insert({
         mobile: normalizeMobile(mobile),
-        full_name: name,
-        email: mail,
+        full_name: payload.fullName,
+        email: payload.email,
         current_designation: taxonomy.designation,
         current_department: taxonomy.department,
         current_sub_department: taxonomy.subDepartment,
         department_custom: taxonomy.departmentCustom,
         sub_department_custom: taxonomy.subDepartmentCustom,
         designation_custom: taxonomy.designationCustom,
-        current_company: company.trim() || null,
-        preferred_location: preferredLocation.trim() || null,
-        highest_qualification: qualification,
-        preferred_modules: preferred,
+        current_company: payload.company,
+        preferred_location: payload.preferredLocation,
+        highest_qualification: highestQualification,
+        notice_period: payload.noticePeriod.trim(),
+        preferred_modules: preferredModulesForDb,
         otp_verified: true,
         resume_url: null,
       })
@@ -459,35 +483,30 @@ export default function RegisterPage() {
       return;
     }
 
-    let resumeUrl: string | null = null;
-    if (resumeFile) {
-      const ext = resumeFile.name.includes(".")
-        ? resumeFile.name.slice(resumeFile.name.lastIndexOf("."))
-        : "";
-      const path = `${inserted.id}/resume-${Date.now()}${ext}`;
-      const { error: upErr } = await supabase.storage.from("resumes").upload(path, resumeFile, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: resumeFile.type || undefined,
-      });
-      if (upErr) {
-        setBusy(false);
-        setError(upErr.message);
-        return;
-      }
+    const ext = resumeFile.name.includes(".") ? resumeFile.name.slice(resumeFile.name.lastIndexOf(".")) : "";
+    const path = `${inserted.id}/resume-${Date.now()}${ext}`;
+    const { error: upErr } = await supabase.storage.from("resumes").upload(path, resumeFile, {
+      cacheControl: "3600",
+      upsert: true,
+      contentType: inferResumeContentType(resumeFile),
+    });
+    if (upErr) {
+      setBusy(false);
+      setError(upErr.message);
+      return;
+    }
 
-      const { data: pub } = supabase.storage.from("resumes").getPublicUrl(path);
-      resumeUrl = pub.publicUrl;
+    const { data: pub } = supabase.storage.from("resumes").getPublicUrl(path);
+    const resumeUrl = pub.publicUrl;
 
-      const { error: updErr } = await supabase
-        .from("candidates")
-        .update({ resume_url: resumeUrl })
-        .eq("id", inserted.id);
-      if (updErr) {
-        setBusy(false);
-        setError(updErr.message);
-        return;
-      }
+    const { error: updErr } = await supabase
+      .from("candidates")
+      .update({ resume_url: resumeUrl })
+      .eq("id", inserted.id);
+    if (updErr) {
+      setBusy(false);
+      setError(updErr.message);
+      return;
     }
 
     clearRegisterStep2Draft();
@@ -508,7 +527,10 @@ export default function RegisterPage() {
     login,
     mobile,
     preferred,
+    preferredModulesOthersNote,
     qualification,
+    qualificationCustom,
+    noticePeriod,
     refreshCandidate,
     resumeFile,
     router,
@@ -532,6 +554,12 @@ export default function RegisterPage() {
               : "Tell us a bit about your background so we can match you to the right roles. When you’re done, we’ll take you to job listings."}
           </p>
 
+          {fromEmptyState ? (
+            <div className="mt-4 rounded-2xl border border-[var(--color-po-gold)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]">
+              Don&apos;t see a matching role right now? Register your profile and we&apos;ll reach out when the right opportunity comes.
+            </div>
+          ) : null}
+
           {restoredDraftBanner ? (
             <div className="mt-4 flex items-start justify-between gap-3 rounded-2xl border border-[var(--color-po-teal)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]">
               <p className="min-w-0 leading-relaxed">
@@ -541,7 +569,7 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setRestoredDraftBanner(false)}
-                className="shrink-0 rounded-full px-2 py-1 text-xs font-semibold text-[var(--color-po-muted)] hover:bg-white/70"
+                className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full px-2 py-1 text-xs font-semibold text-[var(--color-po-muted)] hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
               >
                 Dismiss
               </button>
@@ -549,7 +577,11 @@ export default function RegisterPage() {
           ) : null}
 
           {error ? (
-            <p className="mt-4 rounded-2xl border border-[var(--color-po-coral)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]">
+            <p
+              className="mt-4 rounded-2xl border border-[var(--color-po-coral)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]"
+              role="alert"
+              aria-live="assertive"
+            >
               {error}
             </p>
           ) : null}
@@ -560,7 +592,7 @@ export default function RegisterPage() {
               <p className="mt-1 text-[var(--color-po-muted)]">Login instead?</p>
               <Link
                 href="/login"
-                className="mt-3 inline-flex text-sm font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline"
+                className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
               >
                 Go to login
               </Link>
@@ -569,9 +601,10 @@ export default function RegisterPage() {
 
           {!alreadyRegistered && step === 1 ? (
             <div className="mt-8 space-y-4">
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
+              <label className="block text-sm font-semibold text-[var(--color-po-navy)]" htmlFor="register-mobile">
                 Mobile number
                 <input
+                  id="register-mobile"
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
                   inputMode="tel"
@@ -587,7 +620,7 @@ export default function RegisterPage() {
                     type="button"
                     disabled={!canSendOtp || busy || resendIn > 0}
                     onClick={sendOtp}
-                    className="inline-flex flex-1 items-center justify-center rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {busy ? "Sending…" : resendIn > 0 ? `Retry in ${resendIn}s` : "Send OTP"}
                   </button>
@@ -596,7 +629,7 @@ export default function RegisterPage() {
                     type="button"
                     disabled={busy || resendIn > 0}
                     onClick={sendOtp}
-                    className="inline-flex flex-1 items-center justify-center rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-6 py-3 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/35 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-6 py-3 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/35 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {resendIn > 0 ? `Resend OTP (${resendIn}s)` : "Resend OTP"}
                   </button>
@@ -605,8 +638,10 @@ export default function RegisterPage() {
 
               {otpSentOnce ? (
                 <div>
-                  <p className="text-sm font-semibold text-[var(--color-po-navy)]">Enter OTP</p>
-                  <OtpBoxes value={otp} onChange={setOtp} disabled={busy} />
+                  <p id="register-otp-heading" className="text-sm font-semibold text-[var(--color-po-navy)]">
+                    Enter OTP
+                  </p>
+                  <OtpBoxes value={otp} onChange={setOtp} disabled={busy} labelledBy="register-otp-heading" />
                 </div>
               ) : null}
 
@@ -615,7 +650,7 @@ export default function RegisterPage() {
                   type="button"
                   disabled={!canVerify}
                   onClick={verifyOtp}
-                  className="w-full rounded-full bg-[var(--color-po-teal)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-11 w-full rounded-full bg-[var(--color-po-teal)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {busy ? "Verifying…" : "Verify & continue"}
                 </button>
@@ -713,6 +748,9 @@ export default function RegisterPage() {
                       {option}
                     </option>
                   ))}
+                  {!subDepartmentOptions.includes(OTHER_OPTION) ? (
+                    <option value={OTHER_OPTION}>{OTHER_OPTION}</option>
+                  ) : null}
                 </select>
               </label>
               {subDepartment === OTHER_OPTION ? (
@@ -745,6 +783,9 @@ export default function RegisterPage() {
                       {option}
                     </option>
                   ))}
+                  {!designationOptions.includes(OTHER_OPTION) ? (
+                    <option value={OTHER_OPTION}>{OTHER_OPTION}</option>
+                  ) : null}
                 </select>
               </label>
               {designation === OTHER_OPTION ? (
@@ -761,21 +802,23 @@ export default function RegisterPage() {
               ) : null}
 
               <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                Current company{" "}
-                <span className="font-medium text-[var(--color-po-muted)]">(optional)</span>
+                Current company <span className="text-[var(--color-po-coral)]">*</span>
                 <input
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
+                  required
+                  maxLength={120}
                   className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                  placeholder="e.g. ABC Pharma Pvt Ltd"
                 />
               </label>
 
               <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                Preferred location{" "}
-                <span className="font-medium text-[var(--color-po-muted)]">(optional)</span>
+                Preferred location <span className="text-[var(--color-po-coral)]">*</span>
                 <input
                   value={preferredLocation}
                   onChange={(e) => setPreferredLocation(e.target.value)}
+                  required
                   maxLength={120}
                   className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
                   placeholder="e.g. Hyderabad, Remote, Bengaluru"
@@ -783,10 +826,22 @@ export default function RegisterPage() {
               </label>
 
               <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
+                Notice period <span className="text-[var(--color-po-coral)]">*</span>
+                <input
+                  value={noticePeriod}
+                  onChange={(e) => setNoticePeriod(e.target.value)}
+                  required
+                  maxLength={120}
+                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                  placeholder="e.g. Immediate, 15 days, 30 days, 2 months"
+                />
+              </label>
+
+              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
                 Highest qualification <span className="text-[var(--color-po-coral)]">*</span>
                 <select
                   value={qualification}
-                  onChange={(e) => setQualification(e.target.value)}
+                  onChange={(e) => onQualificationChange(e.target.value)}
                   required
                   className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
                 >
@@ -797,6 +852,19 @@ export default function RegisterPage() {
                   ))}
                 </select>
               </label>
+              {qualification === "Other" ? (
+                <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
+                  Specify qualification <span className="text-[var(--color-po-coral)]">*</span>
+                  <input
+                    value={qualificationCustom}
+                    onChange={(e) => setQualificationCustom(e.target.value)}
+                    required
+                    maxLength={120}
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                    placeholder="Enter your qualification"
+                  />
+                </label>
+              ) : null}
 
               <div>
                 <p className="text-sm font-semibold text-[var(--color-po-navy)]">
@@ -810,8 +878,9 @@ export default function RegisterPage() {
                       <button
                         key={m}
                         type="button"
+                        aria-pressed={active}
                         onClick={() => toggleModule(m)}
-                        className={`rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
+                        className={`min-h-11 rounded-full border px-4 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet ${
                           active
                             ? "border-[var(--color-po-violet)] bg-[var(--color-po-lavender)] text-[var(--color-po-navy)]"
                             : "border-[var(--color-po-lavender-deep)] bg-white text-[var(--color-po-muted)] hover:border-[var(--color-po-violet)]/35"
@@ -822,22 +891,37 @@ export default function RegisterPage() {
                     );
                   })}
                 </div>
+                {preferred.includes("Others") ? (
+                  <label className="mt-3 block text-sm font-semibold text-[var(--color-po-navy)]">
+                    Describe preferred modules (Others) <span className="text-[var(--color-po-coral)]">*</span>
+                    <input
+                      value={preferredModulesOthersNote}
+                      onChange={(e) => setPreferredModulesOthersNote(e.target.value)}
+                      required
+                      maxLength={200}
+                      className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                      placeholder="e.g. Formulation R&D, Clinical supplies"
+                    />
+                  </label>
+                ) : null}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                  Resume{" "}
-                  <span className="font-medium text-[var(--color-po-muted)]">(optional, PDF/DOC, max 5MB)</span>
+                <label className="block text-sm font-semibold text-[var(--color-po-navy)]" htmlFor="register-resume">
+                  Resume <span className="text-[var(--color-po-coral)]">*</span>{" "}
+                  <span className="font-medium text-[var(--color-po-muted)]">(PDF/DOC, max 5MB)</span>
                   <input
+                    id="register-resume"
                     ref={resumeInputRef}
                     type="file"
+                    required
                     accept={RESUME_ACCEPT_ATTR}
                     onChange={(e) => onResumeSelected(e.target.files?.[0] ?? null)}
-                    className="mt-2 block w-full text-sm text-[var(--color-po-muted)] file:mr-4 file:rounded-full file:border-0 file:bg-[var(--color-po-lavender)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--color-po-navy)]"
+                    className="mt-2 block w-full text-sm text-[var(--color-po-muted)] file:mr-4 file:min-h-11 file:rounded-full file:border-0 file:bg-[var(--color-po-lavender)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--color-po-navy)]"
                   />
                 </label>
                 {resumeHint ? (
-                  <p className="mt-2 text-sm text-[var(--color-po-coral)]" role="alert">
+                  <p className="mt-2 text-sm text-[var(--color-po-coral)]" role="alert" aria-live="polite">
                     {resumeHint}
                   </p>
                 ) : null}
@@ -846,7 +930,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-11 w-full rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy ? "Saving…" : "Create profile"}
               </button>
@@ -855,7 +939,10 @@ export default function RegisterPage() {
 
           <p className="mt-8 text-center text-sm text-[var(--color-po-muted)]">
             Already have an account?{" "}
-            <Link className="font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline" href="/login">
+            <Link
+              className="font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
+              href="/login"
+            >
               Login
             </Link>
           </p>

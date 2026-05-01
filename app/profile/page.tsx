@@ -9,8 +9,15 @@ import {
   applicationStatusDisplayLabel,
 } from "@/app/admin/admin-constants";
 import { useCandidate } from "@/src/context/CandidateContext";
+import { useSavedJobs } from "@/src/context/SavedJobsContext";
 import { setPostAuthRedirect } from "@/src/lib/authSession";
+import { profileUpdateSchema } from "@/src/lib/schemas/forms";
 import { createSupabaseClient } from "@/src/lib/supabase";
+import {
+  RESUME_ACCEPT_ATTR,
+  inferResumeContentType,
+  resumeValidationMessage,
+} from "@/src/lib/resumeUpload";
 import type { CandidateRow } from "@/types/database.types";
 
 const QUALIFICATIONS = [
@@ -26,34 +33,6 @@ const QUALIFICATIONS = [
 ] as const;
 
 const MODULES = ["API", "Injectables", "OSD", "Others"] as const;
-
-const RESUME_MAX_BYTES = 5 * 1024 * 1024;
-const RESUME_ACCEPT_ATTR =
-  ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
-const ALLOWED_RESUME_MIME = new Set([
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-]);
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
-
-function resumeValidationMessage(file: File): string | null {
-  if (file.size > RESUME_MAX_BYTES) {
-    return "That file is larger than 5MB. Choose a smaller file or a shorter PDF.";
-  }
-  const lower = file.name.toLowerCase();
-  const extOk = lower.endsWith(".pdf") || lower.endsWith(".doc") || lower.endsWith(".docx");
-  const mime = (file.type || "").trim();
-  const mimeOk = mime ? ALLOWED_RESUME_MIME.has(mime) : extOk;
-  if (!extOk && !mimeOk) {
-    return "Please choose a PDF or Word file (.pdf, .doc, .docx).";
-  }
-  return null;
-}
 
 function isQualification(value: string): value is (typeof QUALIFICATIONS)[number] {
   return (QUALIFICATIONS as readonly string[]).includes(value);
@@ -84,6 +63,90 @@ function initialPreferred(candidate: CandidateRow) {
     (MODULES as readonly string[]).includes(p),
   );
   return mods.length ? mods : ["Others"];
+}
+
+function ProfileSavedJobsSection() {
+  const { savedEntries, loading, toggleSave } = useSavedJobs();
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const onRemove = async (jobId: string) => {
+    setBusyId(jobId);
+    await toggleSave(jobId);
+    setBusyId(null);
+  };
+
+  return (
+    <div className="rounded-[1.75rem] border border-[var(--color-po-lavender-deep)] bg-white/90 p-6 shadow-[0_12px_48px_rgba(30,27,54,0.06)] sm:p-8">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-po-muted)]">
+        Saved jobs
+      </p>
+      <h2 className="mt-2 text-xl font-semibold tracking-tight text-[var(--color-po-navy)]">
+        Roles you bookmarked
+      </h2>
+      <p className="mt-2 text-sm text-[var(--color-po-muted)]">
+        Saved jobs stay here until you remove them or the listing is withdrawn.
+      </p>
+
+      {loading ? (
+        <p className="mt-6 text-sm text-[var(--color-po-muted)]">Loading saved jobs…</p>
+      ) : (savedEntries?.length ?? 0) === 0 ? (
+        <div className="mt-6 rounded-2xl border border-[var(--color-po-lavender-deep)] bg-[var(--color-po-lavender)] px-4 py-8 text-center">
+          <p className="text-sm font-semibold text-[var(--color-po-navy)]">No saved jobs yet</p>
+          <p className="mt-2 text-sm text-[var(--color-po-muted)]">
+            Use the bookmark on a job card or job page to save roles you want to revisit.
+          </p>
+          <Link
+            href="/jobs"
+            className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white"
+          >
+            Browse open roles
+          </Link>
+        </div>
+      ) : (
+        <ul className="mt-6 divide-y divide-[var(--color-po-lavender-deep)] rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white">
+          {savedEntries.map((row) => (
+            <li
+              key={row.id}
+              className="flex flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="font-semibold text-[var(--color-po-navy)]">
+                  {row.jobs?.title ?? "Role"}
+                  {row.jobs && !row.jobs.is_active ? (
+                    <span className="ml-2 text-xs font-medium text-[var(--color-po-muted)]">
+                      (Inactive)
+                    </span>
+                  ) : null}
+                </p>
+                {row.jobs?.location ? (
+                  <p className="mt-1 text-xs text-[var(--color-po-muted)]">{row.jobs.location}</p>
+                ) : null}
+                <p className="mt-1 text-xs text-[var(--color-po-muted)]">
+                  Saved {formatAppDate(row.created_at)}
+                </p>
+              </div>
+              <div className="flex flex-shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                <Link
+                  href={`/jobs/${row.job_id}`}
+                  className="inline-flex min-h-11 items-center rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/35 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
+                >
+                  View job
+                </Link>
+                <button
+                  type="button"
+                  disabled={busyId === row.job_id}
+                  onClick={() => void onRemove(row.job_id)}
+                  className="inline-flex min-h-11 items-center rounded-full border border-transparent px-4 py-2 text-sm font-semibold text-[var(--color-po-violet)] underline-offset-4 transition-colors hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {busyId === row.job_id ? "Removing…" : "Remove"}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function ProfileApplicationHistory({ candidateId }: { candidateId: string }) {
@@ -150,7 +213,11 @@ function ProfileApplicationHistory({ candidateId }: { candidateId: string }) {
       </p>
 
       {applicationsError ? (
-        <p className="mt-4 rounded-2xl border border-[var(--color-po-coral)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]">
+        <p
+          className="mt-4 rounded-2xl border border-[var(--color-po-coral)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]"
+          role="alert"
+          aria-live="assertive"
+        >
           {applicationsError}
         </p>
       ) : applicationsLoading ? (
@@ -163,7 +230,7 @@ function ProfileApplicationHistory({ candidateId }: { candidateId: string }) {
           </p>
           <Link
             href="/jobs"
-            className="mt-5 inline-flex items-center justify-center rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px"
+            className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white"
           >
             Browse open roles
           </Link>
@@ -182,7 +249,7 @@ function ProfileApplicationHistory({ candidateId }: { candidateId: string }) {
                 </span>
                 <Link
                   href={`/jobs/${row.job_id}`}
-                  className="text-sm font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline"
+                  className="inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
                 >
                   View job
                 </Link>
@@ -251,28 +318,21 @@ function ProfileEditCard({
   const saveProfile = useCallback(async () => {
     setFormError(null);
     setResumeHint(null);
-
-    const name = fullName.trim();
-    if (!name || name.length > 100) {
-      setFormError("Full name is required (max 100 characters).");
+    const parsed = profileUpdateSchema.safeParse({
+      fullName,
+      email,
+      designation,
+      department,
+      company,
+      preferredLocation,
+      qualification,
+      preferred,
+    });
+    if (!parsed.success) {
+      setFormError(parsed.error.issues[0]?.message ?? "Please review your profile details.");
       return;
     }
-
-    const mail = email.trim();
-    if (!mail || !isValidEmail(mail)) {
-      setFormError("Please enter a valid email address.");
-      return;
-    }
-
-    if (!qualification) {
-      setFormError("Please select your highest qualification.");
-      return;
-    }
-
-    if (!preferred.length) {
-      setFormError("Please select at least one preferred module.");
-      return;
-    }
+    const payload = parsed.data;
 
     if (resumeFile) {
       const resumeErr = resumeValidationMessage(resumeFile);
@@ -299,7 +359,7 @@ function ProfileEditCard({
       const { error: upErr } = await supabase.storage.from("resumes").upload(path, resumeFile, {
         cacheControl: "3600",
         upsert: true,
-        contentType: resumeFile.type || undefined,
+        contentType: inferResumeContentType(resumeFile),
       });
       if (upErr) {
         setSaveBusy(false);
@@ -313,14 +373,14 @@ function ProfileEditCard({
     const { error: updErr } = await supabase
       .from("candidates")
       .update({
-        full_name: name,
-        email: mail,
-        current_designation: designation.trim() || null,
-        current_department: department.trim() || null,
-        current_company: company.trim() || null,
-        preferred_location: preferredLocation.trim() || null,
-        highest_qualification: qualification,
-        preferred_modules: preferred,
+        full_name: payload.fullName,
+        email: payload.email,
+        current_designation: payload.designation ?? null,
+        current_department: payload.department ?? null,
+        current_company: payload.company ?? null,
+        preferred_location: payload.preferredLocation ?? null,
+        highest_qualification: payload.qualification,
+        preferred_modules: payload.preferred,
         resume_url: resumeUrl,
       })
       .eq("id", candidate.id);
@@ -363,7 +423,11 @@ function ProfileEditCard({
       </p>
 
       {formError ? (
-        <p className="mt-4 rounded-2xl border border-[var(--color-po-coral)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]">
+        <p
+          className="mt-4 rounded-2xl border border-[var(--color-po-coral)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]"
+          role="alert"
+          aria-live="assertive"
+        >
           {formError}
         </p>
       ) : null}
@@ -479,8 +543,9 @@ function ProfileEditCard({
                 <button
                   key={m}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => toggleModule(m)}
-                  className={`rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
+                  className={`min-h-11 rounded-full border px-4 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet ${
                     active
                       ? "border-[var(--color-po-violet)] bg-[var(--color-po-lavender)] text-[var(--color-po-navy)]"
                       : "border-[var(--color-po-lavender-deep)] bg-white text-[var(--color-po-muted)] hover:border-[var(--color-po-violet)]/35"
@@ -530,7 +595,7 @@ function ProfileEditCard({
         <button
           type="submit"
           disabled={saveBusy}
-          className="w-full rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+          className="min-h-11 w-full rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saveBusy ? "Saving…" : "Save profile"}
         </button>
@@ -539,7 +604,7 @@ function ProfileEditCard({
       <div className="mt-10 flex flex-col gap-3 sm:flex-row">
         <Link
           href="/jobs"
-          className="inline-flex flex-1 items-center justify-center rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-6 py-3 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/35"
+          className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-6 py-3 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/35 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
         >
           Browse jobs
         </Link>
@@ -549,7 +614,7 @@ function ProfileEditCard({
             logout();
             router.replace("/");
           }}
-          className="inline-flex flex-1 items-center justify-center rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-6 py-3 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/35"
+          className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-6 py-3 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/35 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
         >
           Sign out
         </button>
@@ -594,6 +659,7 @@ export default function ProfilePage() {
           router={router}
           logout={logout}
         />
+        <ProfileSavedJobsSection />
         <ProfileApplicationHistory candidateId={candidate.id} />
       </div>
     </main>

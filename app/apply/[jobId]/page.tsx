@@ -38,6 +38,12 @@ export default function ApplyPage() {
     setSuccess(true);
   }, []);
 
+  const handleRequireReauth = useCallback(() => {
+    if (!jobId) return;
+    setPostAuthRedirect(`/apply/${jobId}`);
+    router.replace(`/login?redirect=${encodeURIComponent(`/apply/${jobId}`)}`);
+  }, [jobId, router]);
+
   useEffect(() => {
     if (!jobId) return;
     if (authLoading) return;
@@ -224,12 +230,13 @@ export default function ApplyPage() {
 
           {job ? (
             <ApplyJobForm
-              key={`${candidate.id}-${candidate.updated_at}`}
+              key={`${jobId}-${candidate.id}-${candidate.updated_at ?? ""}`}
               candidate={candidate}
               job={job}
               jobId={jobId}
               refreshCandidate={refreshCandidate}
               onSubmitted={handleSubmitted}
+              onRequireReauth={handleRequireReauth}
             />
           ) : null}
         </div>

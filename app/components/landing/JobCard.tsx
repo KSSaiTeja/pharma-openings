@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useCallback } from "react";
 
+import { JobSaveButton } from "@/app/components/JobSaveButton";
 import { useCandidate } from "@/src/context/CandidateContext";
 import { setPostAuthRedirect } from "@/src/lib/authSession";
 
@@ -26,6 +27,8 @@ export type JobCardProps = {
   /** Secondary link, e.g. `/jobs/[id]` for full role detail. */
   detailHref?: string;
   detailLabel?: string;
+  /** When set, shows a save/bookmark control (P-30). */
+  jobId?: string;
 };
 
 function CtaLink({
@@ -80,6 +83,7 @@ export function JobCard({
   descriptionPreview,
   detailHref,
   detailLabel = "View role",
+  jobId,
 }: JobCardProps) {
   const initials = company
     .split(/\s+/)
@@ -92,37 +96,46 @@ export function JobCard({
 
   return (
     <article className="flex flex-col gap-5 rounded-[1.75rem] border border-[#ebe7f4] bg-white px-5 py-5 shadow-[0_8px_30px_rgba(30,27,54,0.04)] transition-shadow hover:shadow-[0_16px_48px_rgba(30,27,54,0.07)] sm:flex-row sm:items-stretch sm:justify-between sm:px-7 sm:py-6">
-      <div className="flex min-w-0 gap-4 sm:py-0.5">
-        <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f0edf8] text-xs font-bold tracking-tight text-[#6d6ae8]"
-          aria-hidden
-        >
-          {initials}
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-semibold tracking-tight text-[#1e1b36] sm:text-lg">
-            {title}
-          </h3>
-          <p className="mt-0.5 text-sm text-[#6b6880]">{company}</p>
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {tags.map((tag, i) => (
-              <li key={`${tag}-${i}`}>
-                <span className="inline-flex rounded-full bg-[#f4f1fb] px-3 py-1 text-[11px] font-medium text-[#6b6880]">
-                  {tag}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {qualification ? (
-            <p className="mt-3 text-xs leading-relaxed text-[#6b6880] sm:text-sm">
-              <span className="font-medium text-[#1e1b36]/85">Qualification: </span>
-              {qualification}
-            </p>
-          ) : null}
-          {description ? (
-            <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-[#6b6880] sm:text-sm">
-              {description}
-            </p>
+      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:py-0.5">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="flex min-w-0 gap-4">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f0edf8] text-xs font-bold tracking-tight text-[#6d6ae8]"
+              aria-hidden
+            >
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold tracking-tight text-[#1e1b36] sm:text-lg">
+                {title}
+              </h3>
+              <p className="mt-0.5 text-sm text-[#6b6880]">{company}</p>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {tags.map((tag, i) => (
+                  <li key={`${tag}-${i}`}>
+                    <span className="inline-flex rounded-full bg-[#f4f1fb] px-3 py-1 text-[11px] font-medium text-[#6b6880]">
+                      {tag}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {qualification ? (
+                <p className="mt-3 text-xs leading-relaxed text-[#6b6880] sm:text-sm">
+                  <span className="font-medium text-[#1e1b36]/85">Qualification: </span>
+                  {qualification}
+                </p>
+              ) : null}
+              {description ? (
+                <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-[#6b6880] sm:text-sm">
+                  {description}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          {jobId ? (
+            <div className="shrink-0 pt-0.5">
+              <JobSaveButton jobId={jobId} />
+            </div>
           ) : null}
         </div>
       </div>

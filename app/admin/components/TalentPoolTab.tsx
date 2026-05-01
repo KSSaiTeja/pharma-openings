@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,19 +23,37 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import type { AdminCandidateNoteRow, CandidateRow, Database } from "@/types/database.types";
+import type { AdminCandidateNoteRow, CandidateRow, Database, Json } from "@/types/database.types";
 
 import { formatAppliedAt, JOB_MODULES, QUALIFICATIONS } from "../admin-constants";
 
+const TALENT_POOL_PAGE_SIZE = 40;
+
 type Props = {
   supabase: SupabaseClient<Database>;
+  onSyncTalentPool: (payload: { candidateIds: string[]; page: number }) => void;
+  syncingTarget: null | "applications" | "talent_pool";
 };
 
-export function TalentPoolTab({ supabase }: Props) {
+function parseTalentPoolRpcPayload(raw: Json): { total: number; rows: CandidateRow[] } {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { total: 0, rows: [] };
+  }
+  const o = raw as Record<string, unknown>;
+  const total = typeof o.total === "number" ? o.total : Number(o.total ?? 0);
+  const rowsRaw = o.rows;
+  if (!Array.isArray(rowsRaw)) {
+    return { total, rows: [] };
+  }
+  return { total, rows: rowsRaw as CandidateRow[] };
+}
+
+export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Props) {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<CandidateRow[]>([]);
-  const [appliedCandidateIds, setAppliedCandidateIds] = useState<Set<string>>(new Set());
-  const [notesByCandidate, setNotesByCandidate] = useState<Record<string, AdminCandidateNoteRow[]>>({});
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [locationOptions, setLocationOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -44,46 +62,44 @@ export function TalentPoolTab({ supabase }: Props) {
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [activeCandidate, setActiveCandidate] = useState<CandidateRow | null>(null);
+  const [dialogNotes, setDialogNotes] = useState<AdminCandidateNoteRow[]>([]);
   const [noteBody, setNoteBody] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const [noteErr, setNoteErr] = useState<string | null>(null);
 
-  const groupNotes = useCallback((notes: AdminCandidateNoteRow[]) => {
-    const grouped: Record<string, AdminCandidateNoteRow[]> = {};
-    for (const note of notes) {
-      const key = note.candidate_id;
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(note);
-    }
-    return grouped;
-  }, []);
-
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
-    const [{ data: apps, error: e1 }, { data: cands, error: e2 }, { data: notes, error: e3 }] = await Promise.all([
-      supabase.from("applications").select("candidate_id").not("candidate_id", "is", null),
-      supabase.from("candidates").select("*").order("created_at", { ascending: false }).limit(3000),
-      supabase
-        .from("admin_candidate_notes")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5000),
-    ]);
-    if (e1 || e2 || e3) {
-      setErr(e1?.message ?? e2?.message ?? e3?.message ?? "Failed to load");
+    const { data, error } = await supabase.rpc("talent_pool_candidates_page", {
+      p_limit: TALENT_POOL_PAGE_SIZE,
+      p_offset: (page - 1) * TALENT_POOL_PAGE_SIZE,
+      p_module: moduleFilter === "all" ? null : moduleFilter,
+      p_qual: qualFilter === "all" ? null : qualFilter,
+      p_location: locationFilter === "all" ? null : locationFilter,
+      p_search: search.trim() ? search.trim() : null,
+    });
+
+    if (error) {
+      setErr(error.message);
       setCandidates([]);
-      setAppliedCandidateIds(new Set());
-      setNotesByCandidate({});
-    } else {
-      setCandidates((cands as CandidateRow[]) ?? []);
-      setAppliedCandidateIds(
-        new Set((apps ?? []).map((r) => r.candidate_id).filter((id): id is string => Boolean(id))),
-      );
-      setNotesByCandidate(groupNotes((notes as AdminCandidateNoteRow[]) ?? []));
+      setTotalCount(0);
+      setLoading(false);
+      return;
     }
+
+    const parsed = parseTalentPoolRpcPayload(data as Json);
+    setTotalCount(parsed.total);
+    const pages = Math.max(1, Math.ceil(parsed.total / TALENT_POOL_PAGE_SIZE));
+    if (page > pages) {
+      startTransition(() => {
+        setPage(pages);
+      });
+      setLoading(false);
+      return;
+    }
+    setCandidates(parsed.rows);
     setLoading(false);
-  }, [groupNotes, supabase]);
+  }, [supabase, page, moduleFilter, qualFilter, locationFilter, search]);
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
@@ -92,44 +108,49 @@ export function TalentPoolTab({ supabase }: Props) {
   }, [supabase]);
 
   useEffect(() => {
+    void (async () => {
+      const { data } = await supabase.from("candidates").select("preferred_location").limit(8000);
+      const u = new Set<string>();
+      for (const row of data ?? []) {
+        const loc = (row as { preferred_location?: string | null }).preferred_location?.trim();
+        if (loc) u.add(loc);
+      }
+      setLocationOptions([...u].sort((a, b) => a.localeCompare(b)));
+    })();
+  }, [supabase]);
+
+  useEffect(() => {
     queueMicrotask(() => {
       void load();
     });
   }, [load]);
 
-  const pool = useMemo(
-    () => candidates.filter((c) => !appliedCandidateIds.has(c.id)),
-    [candidates, appliedCandidateIds],
+  useEffect(() => {
+    startTransition(() => {
+      setPage(1);
+    });
+  }, [moduleFilter, qualFilter, locationFilter, search]);
+
+  const openCandidateNotes = useCallback(
+    async (c: CandidateRow) => {
+      setActiveCandidate(c);
+      setNoteErr(null);
+      const { data, error } = await supabase
+        .from("admin_candidate_notes")
+        .select("*")
+        .eq("candidate_id", c.id)
+        .order("created_at", { ascending: false });
+      if (error) {
+        setDialogNotes([]);
+        setNoteErr(error.message);
+        return;
+      }
+      setDialogNotes((data as AdminCandidateNoteRow[]) ?? []);
+    },
+    [supabase],
   );
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return pool.filter((c) => {
-      if (moduleFilter !== "all") {
-        const mods = c.preferred_modules ?? [];
-        if (!mods.includes(moduleFilter)) return false;
-      }
-      if (qualFilter !== "all") {
-        const hq = (c.highest_qualification ?? "").trim();
-        if (hq !== qualFilter) return false;
-      }
-      if (locationFilter !== "all") {
-        const location = (c.preferred_location ?? "").trim();
-        if (!location || location !== locationFilter) return false;
-      }
-      if (q) {
-        const blob = `${c.full_name} ${c.email} ${c.mobile} ${c.preferred_location ?? ""}`.toLowerCase();
-        if (!blob.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [pool, moduleFilter, qualFilter, locationFilter, search]);
-
-  const locationOptions = useMemo(() => {
-    return Array.from(new Set(pool.map((candidate) => (candidate.preferred_location ?? "").trim()).filter(Boolean))).sort(
-      (a, b) => a.localeCompare(b),
-    );
-  }, [pool]);
+  const totalPages = Math.max(1, Math.ceil(totalCount / TALENT_POOL_PAGE_SIZE));
 
   const submitNote = useCallback(async () => {
     if (!activeCandidate) return;
@@ -152,23 +173,25 @@ export function TalentPoolTab({ supabase }: Props) {
     }
     setNoteBody("");
     await load();
+    if (activeCandidate) {
+      const { data } = await supabase
+        .from("admin_candidate_notes")
+        .select("*")
+        .eq("candidate_id", activeCandidate.id)
+        .order("created_at", { ascending: false });
+      setDialogNotes((data as AdminCandidateNoteRow[]) ?? []);
+    }
     setNoteBusy(false);
   }, [activeCandidate, load, noteBody, sessionEmail, supabase]);
-
-  const noteSummaryFor = useCallback(
-    (candidateId: string) => {
-      const first = notesByCandidate[candidateId]?.[0];
-      if (!first) return "No notes";
-      const preview = first.body.replace(/\s+/g, " ").trim();
-      return preview.length > 48 ? `${preview.slice(0, 48)}...` : preview;
-    },
-    [notesByCandidate],
-  );
 
   return (
     <div className="space-y-4">
       {err ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+        <p
+          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+          role="alert"
+          aria-live="assertive"
+        >
           {err}
         </p>
       ) : null}
@@ -230,17 +253,39 @@ export function TalentPoolTab({ supabase }: Props) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button type="button" variant="secondary" onClick={() => void load()} disabled={loading}>
-          {loading ? "Refreshing…" : "Refresh"}
-        </Button>
+        <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:justify-end">
+          <Button type="button" variant="secondary" onClick={() => void load()} disabled={loading}>
+            {loading ? "Refreshing…" : "Refresh"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onSyncTalentPool({ candidateIds: candidates.map((c) => c.id), page })}
+            disabled={syncingTarget !== null || candidates.length === 0 || loading}
+          >
+            {syncingTarget === "talent_pool"
+              ? `Syncing talent pool (page ${page})…`
+              : `Sync talent pool — page ${page}`}
+          </Button>
+        </div>
       </div>
 
+      {!loading && totalCount > 0 ? (
+        <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <span className="font-medium text-zinc-700 dark:text-zinc-300">Talent Pool sheet · Page {page}</span> — appends
+          to the <span className="font-medium">Talent Pool</span> tab only; skips candidates already in the sheet (same
+          Candidate ID). Use the <span className="font-medium">Applications</span> tab for job applications.
+        </p>
+      ) : null}
+
       <p className="text-sm text-zinc-600 dark:text-zinc-300">
-        Showing {filtered.length} candidate{filtered.length === 1 ? "" : "s"} with no applications yet.
+        Showing {candidates.length.toLocaleString()} on this page · {totalCount.toLocaleString()} matching · candidates
+        with no applications yet
       </p>
 
       <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <Table>
+          <caption className="sr-only">Talent pool candidates with no applications yet</caption>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
@@ -264,14 +309,14 @@ export function TalentPoolTab({ supabase }: Props) {
                   Loading…
                 </TableCell>
               </TableRow>
-            ) : filtered.length === 0 ? (
+            ) : totalCount === 0 ? (
               <TableRow>
                 <TableCell colSpan={12} className="text-center text-sm text-zinc-500">
                   No talent pool entries match these filters.
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((c) => (
+              candidates.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.full_name}</TableCell>
                   <TableCell className="hidden max-w-[200px] truncate md:table-cell">{c.email}</TableCell>
@@ -289,13 +334,10 @@ export function TalentPoolTab({ supabase }: Props) {
                   <TableCell className="hidden lg:table-cell">
                     <button
                       type="button"
-                      className="max-w-[180px] truncate text-left text-xs font-medium text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-200"
-                      onClick={() => {
-                        setActiveCandidate(c);
-                        setNoteErr(null);
-                      }}
+                      className="max-w-[180px] truncate rounded-sm text-left text-xs font-medium text-zinc-800 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 dark:text-zinc-200 dark:focus-visible:ring-zinc-500"
+                      onClick={() => void openCandidateNotes(c)}
                     >
-                      {noteSummaryFor(c.id)}
+                      View / add notes
                     </button>
                   </TableCell>
                   <TableCell>
@@ -322,11 +364,40 @@ export function TalentPoolTab({ supabase }: Props) {
         </Table>
       </div>
 
+      {!loading && totalCount > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-600 dark:text-zinc-400">
+          <span className="tabular-nums">
+            Page {page} of {totalPages}
+          </span>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <Dialog
         open={Boolean(activeCandidate)}
         onOpenChange={(open) => {
           if (!open) {
             setActiveCandidate(null);
+            setDialogNotes([]);
             setNoteBody("");
             setNoteErr(null);
           }
@@ -341,11 +412,11 @@ export function TalentPoolTab({ supabase }: Props) {
           </DialogHeader>
 
           <div className="space-y-3">
-            {(activeCandidate ? notesByCandidate[activeCandidate.id] ?? [] : []).length === 0 ? (
+            {dialogNotes.length === 0 ? (
               <p className="text-sm text-zinc-500">No notes yet. Add one below.</p>
             ) : (
               <div className="max-h-60 space-y-2 overflow-y-auto rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
-                {(activeCandidate ? notesByCandidate[activeCandidate.id] ?? [] : []).map((note) => (
+                {dialogNotes.map((note) => (
                   <article key={note.id} className="rounded-md border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-700 dark:bg-zinc-900">
                     <p className="whitespace-pre-wrap text-sm text-zinc-800 dark:text-zinc-200">{note.body}</p>
                     <p className="mt-1 text-[11px] text-zinc-500">
@@ -365,7 +436,11 @@ export function TalentPoolTab({ supabase }: Props) {
                 placeholder="Write an internal note..."
                 rows={4}
               />
-              {noteErr ? <p className="text-xs text-red-600">{noteErr}</p> : null}
+              {noteErr ? (
+                <p className="text-xs text-red-600" role="alert" aria-live="assertive">
+                  {noteErr}
+                </p>
+              ) : null}
             </div>
           </div>
 

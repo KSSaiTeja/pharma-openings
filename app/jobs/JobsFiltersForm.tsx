@@ -29,14 +29,14 @@ function FilterCheckboxGroup({
         {options.map((option) => {
           const id = `${idPrefix}-${name}-${option.replace(/\s+/g, "-").toLowerCase()}`;
           return (
-            <label key={option} htmlFor={id} className="flex items-center gap-2 text-sm text-[#1e1b36]">
+            <label key={option} htmlFor={id} className="flex min-h-11 cursor-pointer items-center gap-2 py-0.5 text-sm text-[#1e1b36]">
               <input
                 id={id}
                 type="checkbox"
                 name={name}
                 value={option}
                 defaultChecked={selected.includes(option)}
-                className="h-4 w-4 rounded border-[#d9d4ec] text-[#6d6ae8] focus:ring-[#6d6ae8]/30"
+                className="h-4 w-4 shrink-0 rounded border-[#d9d4ec] text-[#6d6ae8] focus-visible:ring-2 focus-visible:ring-[#6d6ae8]/40"
               />
               <span>{option}</span>
             </label>
@@ -131,7 +131,7 @@ export function JobsFiltersForm({
           defaultValue={state.q}
           placeholder="Title, location, department, module"
           autoComplete="off"
-          className="h-11 w-full rounded-xl border border-[#ebe7f4] bg-[#faf8ff] px-3 text-sm text-[#1e1b36] outline-none transition-[box-shadow,border-color] placeholder:text-[#6b6880]/70 focus:border-[#6d6ae8]/45 focus:ring-4 focus:ring-[#6d6ae8]/12"
+              className="h-11 min-h-11 w-full rounded-xl border border-[#ebe7f4] bg-[#faf8ff] px-3 text-sm text-[#1e1b36] outline-none transition-[box-shadow,border-color] placeholder:text-[#6b6880]/70 focus:border-[#6d6ae8]/45 focus:ring-4 focus:ring-[#6d6ae8]/12"
         />
       </div>
 
@@ -181,18 +181,22 @@ export function JobsFiltersForm({
             { value: "30d", label: "Last 30 days" },
             { value: "all", label: "All" },
             { value: "custom", label: "Custom range" },
-          ].map((preset) => (
-            <label key={preset.value} className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="posted"
-                value={preset.value}
-                defaultChecked={state.posted === preset.value}
-                className="h-4 w-4 border-[#d9d4ec] text-[#6d6ae8] focus:ring-[#6d6ae8]/30"
-              />
-              <span>{preset.label}</span>
-            </label>
-          ))}
+          ].map((preset) => {
+            const rid = `${idPrefix}-posted-${preset.value}`;
+            return (
+              <label key={preset.value} htmlFor={rid} className="flex min-h-11 cursor-pointer items-center gap-2 py-1">
+                <input
+                  id={rid}
+                  type="radio"
+                  name="posted"
+                  value={preset.value}
+                  defaultChecked={state.posted === preset.value}
+                  className="h-4 w-4 shrink-0 border-[#d9d4ec] text-[#6d6ae8] focus-visible:ring-2 focus-visible:ring-[#6d6ae8]/40"
+                />
+                <span>{preset.label}</span>
+              </label>
+            );
+          })}
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="space-y-1">
@@ -204,7 +208,7 @@ export function JobsFiltersForm({
               type="date"
               name="dateFrom"
               defaultValue={state.dateFrom}
-              className="h-10 w-full rounded-xl border border-[#ebe7f4] bg-[#faf8ff] px-3 text-sm text-[#1e1b36] outline-none focus:border-[#6d6ae8]/45 focus:ring-4 focus:ring-[#6d6ae8]/12"
+              className="h-11 min-h-11 w-full rounded-xl border border-[#ebe7f4] bg-[#faf8ff] px-3 text-sm text-[#1e1b36] outline-none focus:border-[#6d6ae8]/45 focus:ring-4 focus:ring-[#6d6ae8]/12"
             />
           </div>
           <div className="space-y-1">
@@ -216,7 +220,7 @@ export function JobsFiltersForm({
               type="date"
               name="dateTo"
               defaultValue={state.dateTo}
-              className="h-10 w-full rounded-xl border border-[#ebe7f4] bg-[#faf8ff] px-3 text-sm text-[#1e1b36] outline-none focus:border-[#6d6ae8]/45 focus:ring-4 focus:ring-[#6d6ae8]/12"
+              className="h-11 min-h-11 w-full rounded-xl border border-[#ebe7f4] bg-[#faf8ff] px-3 text-sm text-[#1e1b36] outline-none focus:border-[#6d6ae8]/45 focus:ring-4 focus:ring-[#6d6ae8]/12"
             />
           </div>
         </div>
@@ -226,7 +230,7 @@ export function JobsFiltersForm({
         <p className="text-xs text-[#6b6880]">Filters apply automatically.</p>
         <Link
           href="/jobs"
-          className="inline-flex h-9 items-center justify-center rounded-full border border-[#e4dff5] bg-white px-4 text-sm font-semibold text-[#6b6880] transition-[color,background-color,border-color] hover:border-[#6d6ae8]/30 hover:bg-[#faf8ff] hover:text-[#1e1b36]"
+          className="inline-flex h-11 min-h-11 items-center justify-center rounded-full border border-[#e4dff5] bg-white px-4 text-sm font-semibold text-[#6b6880] transition-[color,background-color,border-color] hover:border-[#6d6ae8]/30 hover:bg-[#faf8ff] hover:text-[#1e1b36] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
         >
           Clear all
         </Link>

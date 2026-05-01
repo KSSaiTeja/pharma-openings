@@ -9,13 +9,15 @@ type OtpBoxesProps = {
   onChange: (digits: string) => void;
   disabled?: boolean;
   length?: number;
+  /** Element id of the visible OTP label (e.g. paragraph or legend). */
+  labelledBy?: string;
 };
 
 function sanitize(d: string, length: number) {
   return d.replace(/\D/g, "").slice(0, length);
 }
 
-export function OtpBoxes({ value, onChange, disabled, length = OTP_DIGIT_COUNT }: OtpBoxesProps) {
+export function OtpBoxes({ value, onChange, disabled, length = OTP_DIGIT_COUNT, labelledBy }: OtpBoxesProps) {
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   const digits = sanitize(value, length);
@@ -101,7 +103,13 @@ export function OtpBoxes({ value, onChange, disabled, length = OTP_DIGIT_COUNT }
   );
 
   return (
-    <div className="mt-2 flex flex-wrap gap-2 sm:gap-3" onPasteCapture={handlePaste}>
+    <div
+      className="mt-2 flex flex-wrap gap-2 sm:gap-3"
+      onPasteCapture={handlePaste}
+      {...(labelledBy
+        ? { role: "group" as const, "aria-labelledby": labelledBy }
+        : {})}
+    >
       {chars.map((ch, index) => (
         <input
           key={index}

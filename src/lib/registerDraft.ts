@@ -14,7 +14,10 @@ export type RegisterStep2DraftV1 = {
   company: string;
   preferredLocation: string;
   qualification: string;
+  qualificationCustom: string;
+  noticePeriod: string;
   preferred: string[];
+  preferredModulesOthersNote: string;
 };
 
 export function readRegisterStep2Draft(): RegisterStep2DraftV1 | null {
@@ -41,6 +44,10 @@ export function readRegisterStep2Draft(): RegisterStep2DraftV1 | null {
       company: typeof o.company === "string" ? o.company : "",
       preferredLocation: typeof o.preferredLocation === "string" ? o.preferredLocation : "",
       qualification: typeof o.qualification === "string" ? o.qualification : "",
+      qualificationCustom: typeof o.qualificationCustom === "string" ? o.qualificationCustom : "",
+      noticePeriod: typeof o.noticePeriod === "string" ? o.noticePeriod : "",
+      preferredModulesOthersNote:
+        typeof o.preferredModulesOthersNote === "string" ? o.preferredModulesOthersNote : "",
       preferred: preferred.length ? preferred : ["Others"],
     };
   } catch {

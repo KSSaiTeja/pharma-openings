@@ -39,18 +39,25 @@ export function PopularJobs({ initialJobs, loadError }: PopularJobsProps) {
         {showEmpty ? (
           <div className="mt-12 rounded-[1.75rem] border border-[#ebe7f4] bg-white px-6 py-14 text-center shadow-[0_8px_30px_rgba(30,27,54,0.04)] sm:px-10 sm:py-16">
             <p className="text-lg font-semibold tracking-tight text-[#1e1b36]">
-              No openings on the homepage right now
+              Don&apos;t see a matching role?
             </p>
             <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[#6b6880]">
-              New roles appear here as soon as they are published. Browse the full
-              listings page in case anything went live recently.
+              Register your profile and we&apos;ll reach out when the right opportunity comes. You can also browse all listings in case something was posted recently.
             </p>
-            <Link
-              href="/jobs"
-              className="mt-8 inline-flex items-center justify-center rounded-full bg-[#1e1b36] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(30,27,54,0.18)] transition-[filter,transform] hover:brightness-110 active:translate-y-px"
-            >
-              Browse all jobs
-            </Link>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/register?source=home-empty"
+                className="inline-flex items-center justify-center rounded-full bg-[#1e1b36] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(30,27,54,0.18)] transition-[filter,transform] hover:brightness-110 active:translate-y-px"
+              >
+                Register your profile
+              </Link>
+              <Link
+                href="/jobs"
+                className="inline-flex items-center justify-center rounded-full border border-[#ebe7f4] bg-[#faf8ff] px-6 py-2.5 text-sm font-semibold text-[#1e1b36] transition-colors hover:border-[#6d6ae8]/35"
+              >
+                Browse all jobs
+              </Link>
+            </div>
           </div>
         ) : null}
 

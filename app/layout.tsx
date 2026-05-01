@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { FloatingNavbar } from "./components/FloatingNavbar";
 import { SiteFooter } from "./components/SiteFooter";
 import { AppProviders } from "./providers";
+import { getSiteUrl } from "@/src/lib/siteUrl";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,6 +28,21 @@ export const metadata: Metadata = {
   title: "PharmaOpenings — Pharmaceutical careers & job search",
   description:
     "PharmaOpenings.com connects exceptional talent with cutting-edge pharmaceutical roles. Browse curated jobs, explore leading employers, and advance your career in research, clinical, regulatory, and commercial teams.",
+  metadataBase: new URL(getSiteUrl()),
+  openGraph: {
+    title: "PharmaOpenings — Pharmaceutical careers & job search",
+    description:
+      "PharmaOpenings.com connects exceptional talent with cutting-edge pharmaceutical roles.",
+    url: "/",
+    siteName: "PharmaOpenings",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PharmaOpenings — Pharmaceutical careers & job search",
+    description:
+      "PharmaOpenings.com connects exceptional talent with cutting-edge pharmaceutical roles.",
+  },
 };
 
 export default function RootLayout({

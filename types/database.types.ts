@@ -66,6 +66,7 @@ export type Database = {
           snapshot_qualification: string | null
           snapshot_resume_url: string | null
           status: string
+          status_changed_at: string | null
         }
         Insert: {
           candidate_id?: string | null
@@ -86,6 +87,7 @@ export type Database = {
           snapshot_qualification?: string | null
           snapshot_resume_url?: string | null
           status?: string
+          status_changed_at?: string | null
         }
         Update: {
           candidate_id?: string | null
@@ -106,6 +108,7 @@ export type Database = {
           snapshot_qualification?: string | null
           snapshot_resume_url?: string | null
           status?: string
+          status_changed_at?: string | null
         }
         Relationships: [
           {
@@ -138,6 +141,7 @@ export type Database = {
           highest_qualification: string | null
           id: string
           mobile: string
+          notice_period: string | null
           otp_verified: boolean
           preferred_location: string | null
           preferred_modules: string[] | null
@@ -158,6 +162,7 @@ export type Database = {
           highest_qualification?: string | null
           id?: string
           mobile: string
+          notice_period?: string | null
           otp_verified?: boolean
           preferred_location?: string | null
           preferred_modules?: string[] | null
@@ -178,6 +183,7 @@ export type Database = {
           highest_qualification?: string | null
           id?: string
           mobile?: string
+          notice_period?: string | null
           otp_verified?: boolean
           preferred_location?: string | null
           preferred_modules?: string[] | null
@@ -274,12 +280,61 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_jobs: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          id: string
+          job_id: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          id?: string
+          job_id: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_jobs_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_jobs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      active_job_filter_facets: { Args: Record<PropertyKey, never>; Returns: Json }
+      count_talent_pool_candidates: { Args: Record<PropertyKey, never>; Returns: string }
       po_request_mobile_header: { Args: never; Returns: string }
+      talent_pool_candidates_page: {
+        Args: {
+          p_limit: number
+          p_location?: string | null
+          p_module?: string | null
+          p_offset: number
+          p_qual?: string | null
+          p_search?: string | null
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
@@ -412,3 +467,10 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+/** Table row aliases (Supabase codegen convenience). */
+export type JobRow = Database["public"]["Tables"]["jobs"]["Row"]
+export type CandidateRow = Database["public"]["Tables"]["candidates"]["Row"]
+export type AdminCandidateNoteRow = Database["public"]["Tables"]["admin_candidate_notes"]["Row"]
+export type ApplicationRow = Database["public"]["Tables"]["applications"]["Row"]
+export type SavedJobRow = Database["public"]["Tables"]["saved_jobs"]["Row"]

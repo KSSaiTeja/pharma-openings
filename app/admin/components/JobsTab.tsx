@@ -34,7 +34,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import type { Database, JobRow, TablesInsert } from "@/types/database.types";
+import { adminJobUpsertSchema } from "@/src/lib/schemas/forms";
+import type { Database, Tables, TablesInsert } from "@/types/database.types";
 
 type Props = {
   supabase: SupabaseClient<Database>;
@@ -60,34 +61,57 @@ const emptyForm: {
 };
 
 export function JobsTab({ supabase, onStatsBump }: Props) {
-  const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [jobs, setJobs] = useState<Tables<"jobs">[]>([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [statusPopup, setStatusPopup] = useState<{
+    open: boolean;
+    tone: "success" | "error";
+    title: string;
+    details: string[];
+  }>({
+    open: false,
+    tone: "success",
+    title: "",
+    details: [],
+  });
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saveBusy, setSaveBusy] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<JobRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Tables<"jobs"> | null>(null);
   const [deleteCanHardDelete, setDeleteCanHardDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const openStatusPopup = useCallback((tone: "success" | "error", title: string, details: string[] = []) => {
+    setStatusPopup({ open: true, tone, title, details });
+  }, []);
+
+  const buildSkippedDetails = (rows: Array<{ rowNumber: number; message: string }>, limit = 5): string[] => {
+    if (rows.length === 0) return [];
+    const top = rows.slice(0, limit).map((r) => `Row ${r.rowNumber}: ${r.message}`);
+    const remaining = rows.length - top.length;
+    if (remaining > 0) {
+      top.push(`...and ${remaining} more skipped row${remaining > 1 ? "s" : ""}.`);
+    }
+    return top;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
-    setErr(null);
     const { data, error } = await supabase.from("jobs").select("*").order("created_at", { ascending: false });
     if (error) {
-      setErr(error.message);
+      openStatusPopup("error", "Could not load jobs", [error.message]);
       setJobs([]);
     } else {
-      setJobs((data as JobRow[]) ?? []);
+      setJobs((data as Tables<"jobs">[]) ?? []);
     }
     setLoading(false);
-  }, [supabase]);
+  }, [openStatusPopup, supabase]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -101,7 +125,7 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
     setFormOpen(true);
   };
 
-  const openEdit = (j: JobRow) => {
+  const openEdit = (j: Tables<"jobs">) => {
     setEditingId(j.id);
     setForm({
       title: j.title,
@@ -118,20 +142,22 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
   };
 
   const saveJob = async () => {
-    if (!form.title.trim() || !form.location.trim() || !form.description.trim()) {
-      setErr("Title, location, and description are required.");
+    const parsed = adminJobUpsertSchema.safeParse(form);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message ?? "Please review the form fields.";
+      openStatusPopup("error", "Could not save job", [firstError]);
       return;
     }
+    const normalized = parsed.data;
     setSaveBusy(true);
-    setErr(null);
     const payload: TablesInsert<"jobs"> = {
-      title: form.title.trim(),
-      location: form.location.trim(),
-      department: form.department.trim() || null,
-      type: form.type,
-      module: form.module,
-      qualification_needed: form.qualification_needed,
-      description: form.description.trim(),
+      title: normalized.title,
+      location: normalized.location,
+      department: normalized.department ?? null,
+      type: normalized.type,
+      module: normalized.module,
+      qualification_needed: normalized.qualification_needed,
+      description: normalized.description,
       is_active: true,
     };
     if (editingId) {
@@ -149,14 +175,14 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
         .eq("id", editingId);
       setSaveBusy(false);
       if (error) {
-        setErr(error.message);
+        openStatusPopup("error", "Could not save job", [error.message]);
         return;
       }
     } else {
       const { error } = await supabase.from("jobs").insert(payload);
       setSaveBusy(false);
       if (error) {
-        setErr(error.message);
+        openStatusPopup("error", "Could not create job", [error.message]);
         return;
       }
     }
@@ -165,8 +191,7 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
     onStatsBump();
   };
 
-  const openDeleteDialog = async (j: JobRow) => {
-    setErr(null);
+  const openDeleteDialog = async (j: Tables<"jobs">) => {
     setDeleteTarget(j);
     setDeleteCanHardDelete(false);
     setDeleteOpen(true);
@@ -176,7 +201,7 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
       .select("id", { count: "exact", head: true })
       .eq("job_id", j.id);
     if (error) {
-      setErr(error.message);
+      openStatusPopup("error", "Could not check linked applications", [error.message]);
       return;
     }
     setDeleteCanHardDelete((count ?? 0) === 0);
@@ -191,7 +216,7 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
     const { error } = await query;
     setDeleteBusy(false);
     if (error) {
-      setErr(error.message);
+      openStatusPopup("error", "Could not update job", [error.message]);
       return;
     }
     setDeleteOpen(false);
@@ -200,11 +225,11 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
     onStatsBump();
   };
 
-  const toggleActive = async (j: JobRow, next: boolean) => {
+  const toggleActive = async (j: Tables<"jobs">, next: boolean) => {
     setJobs((prev) => prev.map((x) => (x.id === j.id ? { ...x, is_active: next } : x)));
     const { error } = await supabase.from("jobs").update({ is_active: next }).eq("id", j.id);
     if (error) {
-      setErr(error.message);
+      openStatusPopup("error", "Could not update status", [error.message]);
       void load();
       return;
     }
@@ -223,29 +248,52 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
 
   const onCsv = async (f: File | null) => {
     if (!f) return;
-    setUploadMsg(null);
-    setErr(null);
-    const text = await f.text();
-    const { inserted, skipped } = parseJobCsv(text);
-    const totalRows = inserted.length + skipped;
-    if (inserted.length === 0) {
-      setUploadMsg(`Uploaded 0 of ${totalRows} rows. ${skipped} rows skipped (missing required fields).`);
+    setUploadProgress(null);
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    const hasEncodingReplacement = text.includes("\uFFFD");
+    const encodingHint = hasEncodingReplacement
+      ? "Encoding note: this file may be saved as Latin-1/non-UTF-8. Save as UTF-8 (or UTF-8 BOM) and retry."
+      : null;
+    const { inserted, skipped, totalRows, headerError, skipReasons, rowErrors } = parseJobCsv(text);
+    if (headerError) {
+      openStatusPopup("error", "CSV upload failed", encodingHint ? [headerError, encodingHint] : [headerError]);
       if (fileRef.current) fileRef.current.value = "";
       return;
     }
-    const chunk = 40;
+    const skippedDetails = buildSkippedDetails(rowErrors);
+    if (inserted.length === 0) {
+      openStatusPopup("success", `Uploaded 0 of ${totalRows} rows`, [
+        `${skipped} rows skipped (${skipReasons.missing_required} missing required fields, ${skipReasons.invalid_data} invalid rows, ${skipReasons.empty_row} empty rows).`,
+        ...(encodingHint ? [encodingHint] : []),
+        ...skippedDetails,
+      ]);
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    const chunk = 50;
     let ok = 0;
     for (let i = 0; i < inserted.length; i += chunk) {
       const slice = inserted.slice(i, i + chunk);
+      setUploadProgress(`Uploading ${Math.min(i + slice.length, inserted.length)} of ${inserted.length} valid rows...`);
       const { error } = await supabase.from("jobs").insert(slice);
       if (error) {
-        setErr(error.message);
+        setUploadProgress(null);
+        openStatusPopup("error", `Upload stopped after ${ok} rows`, [
+          `Uploaded ${ok} of ${totalRows} rows before an error.`,
+          error.message,
+        ]);
         if (fileRef.current) fileRef.current.value = "";
         return;
       }
       ok += slice.length;
     }
-    setUploadMsg(`Uploaded ${ok} of ${totalRows} rows. ${skipped} rows skipped (missing required fields).`);
+    setUploadProgress(null);
+    openStatusPopup("success", `Uploaded ${ok} of ${totalRows} rows`, [
+      `${skipped} rows skipped (${skipReasons.missing_required} missing required fields, ${skipReasons.invalid_data} invalid rows, ${skipReasons.empty_row} empty rows).`,
+      ...(encodingHint ? [encodingHint] : []),
+      ...skippedDetails,
+    ]);
     if (fileRef.current) fileRef.current.value = "";
     await load();
     onStatsBump();
@@ -253,16 +301,36 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
 
   return (
     <div className="space-y-4">
-      {err ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
-          {err}
+      {uploadProgress ? (
+        <p className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+          {uploadProgress}
         </p>
       ) : null}
-      {uploadMsg ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
-          {uploadMsg}
-        </p>
-      ) : null}
+      <Dialog open={statusPopup.open} onOpenChange={(open) => setStatusPopup((prev) => ({ ...prev, open }))}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle
+              className={`text-2xl font-bold ${
+                statusPopup.tone === "success" ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"
+              }`}
+            >
+              {statusPopup.title}
+            </DialogTitle>
+          </DialogHeader>
+          {statusPopup.details.length > 0 ? (
+            <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-300">
+              {statusPopup.details.map((detail) => (
+                <p key={detail}>{detail}</p>
+              ))}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" onClick={() => setStatusPopup((prev) => ({ ...prev, open: false }))}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Button type="button" onClick={openCreate}>
@@ -335,6 +403,7 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
 
       <div className="hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 md:block">
         <Table>
+          <caption className="sr-only">Job postings and bulk actions</caption>
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
@@ -420,9 +489,9 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
               />
             </div>
             <div className="grid gap-2">
-              <Label>Type</Label>
+              <Label htmlFor="job-type">Type</Label>
               <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v as JobType }))}>
-                <SelectTrigger>
+                <SelectTrigger id="job-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -435,9 +504,9 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label>Module *</Label>
+              <Label htmlFor="job-module">Module *</Label>
               <Select value={form.module} onValueChange={(v) => setForm((f) => ({ ...f, module: v as JobModule }))}>
-                <SelectTrigger>
+                <SelectTrigger id="job-module">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -450,12 +519,12 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label>Qualification needed *</Label>
+              <Label htmlFor="job-qualification">Qualification needed *</Label>
               <Select
                 value={form.qualification_needed}
                 onValueChange={(v) => setForm((f) => ({ ...f, qualification_needed: v as Qualification }))}
               >
-                <SelectTrigger>
+                <SelectTrigger id="job-qualification">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

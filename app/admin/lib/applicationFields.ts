@@ -8,6 +8,7 @@ export type AdminApplicationRow = {
   mobile: string;
   job_id: string;
   status: string;
+  status_changed_at?: string | null;
   created_at: string;
   candidate_id?: string | null;
   resume_url?: string | null;

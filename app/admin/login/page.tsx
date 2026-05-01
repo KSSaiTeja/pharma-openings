@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
 import { clearAdminReturn, resolveAdminReturn } from "@/app/admin/lib/authGate";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase";
 
-export default function AdminLoginPage() {
+function AdminLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -106,5 +106,19 @@ export default function AdminLoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-md flex-col justify-center px-4 py-10 sm:min-h-[70vh]">
+          <p className="text-center text-sm text-zinc-500">Loading…</p>
+        </main>
+      }
+    >
+      <AdminLoginContent />
+    </Suspense>
   );
 }

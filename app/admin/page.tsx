@@ -1,7 +1,6 @@
 "use client";
 
 import { Briefcase, ClipboardList, LogOut, UserPlus } from "lucide-react";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -14,47 +13,23 @@ import { StatsBar } from "@/app/admin/components/StatsBar";
 import { TalentPoolTab } from "@/app/admin/components/TalentPoolTab";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { invokeSupabaseFunction } from "@/src/lib/edgeFunctions";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase";
-import type { Database } from "@/types/database.types";
+const SYNC_TIMEOUT_MS = 35_000;
+const ADMIN_TAB_KEY = "po_admin_active_tab";
 
-const PAGE_SIZE = 1000;
-
-async function fetchAllCandidateIds(supabase: SupabaseClient<Database>): Promise<Set<string>> {
-  const ids = new Set<string>();
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase.from("candidates").select("id").order("id", { ascending: true }).range(from, from + PAGE_SIZE - 1);
-    if (error) {
-      throw new Error(error.message);
-    }
-    const rows = data ?? [];
-    for (const row of rows) {
-      if (row.id) ids.add(row.id);
-    }
-    if (rows.length < PAGE_SIZE) break;
-  }
-  return ids;
-}
-
-async function fetchAllAppliedCandidateIds(supabase: SupabaseClient<Database>): Promise<Set<string>> {
-  const ids = new Set<string>();
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from("applications")
-      .select("candidate_id")
-      .not("candidate_id", "is", null)
-      .order("candidate_id", { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) {
-      throw new Error(error.message);
-    }
-    const rows = data ?? [];
-    for (const row of rows) {
-      if (row.candidate_id) ids.add(row.candidate_id);
-    }
-    if (rows.length < PAGE_SIZE) break;
-  }
-  return ids;
-}
+type SyncToSheetsResponse = {
+  success: boolean;
+  scope?: "applications" | "talent_pool";
+  applications_synced?: number;
+  applications_skipped_duplicates?: number;
+  applications_on_page?: number;
+  talent_pool_synced?: number;
+  talent_pool_skipped_duplicates?: number;
+  talent_pool_on_page?: number;
+  page?: number | null;
+  error?: string;
+};
 
 export default function AdminPage() {
   const router = useRouter();
@@ -62,6 +37,13 @@ export default function AdminPage() {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsTick, setStatsTick] = useState(0);
+  const [syncTick, setSyncTick] = useState(0);
+  const [syncingTarget, setSyncingTarget] = useState<null | "applications" | "talent_pool">(null);
+  const [activeTab, setActiveTab] = useState("applications");
+  const [syncMessage, setSyncMessage] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const redirectToAdminLogin = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -74,6 +56,160 @@ export default function AdminPage() {
   const bumpStats = useCallback(() => {
     setStatsTick((n) => n + 1);
   }, []);
+
+  const resolveSyncErrorMessage = useCallback((error: string | null, status: number | null): string => {
+    const raw = error ?? "";
+    const normalized = raw.toLowerCase();
+    if (
+      normalized.includes("application id") ||
+      normalized.includes("candidate id") ||
+      normalized.includes("must use the new header") ||
+      normalized.includes("not compatible") ||
+      normalized.includes("application_ids must") ||
+      normalized.includes("candidate_ids must")
+    ) {
+      return raw;
+    }
+    if (
+      normalized.includes("google") ||
+      normalized.includes("oauth2.googleapis.com") ||
+      normalized.includes("sheets.googleapis.com") ||
+      normalized.includes("spreadsheet")
+    ) {
+      return "Sync failed. Google services unavailable. Retry later.";
+    }
+    if (status === 429 || normalized.includes("rate limit")) {
+      return "Google API rate limited the sync. Please wait a moment and retry.";
+    }
+    if (normalized.includes("partially completed") || normalized.includes("partial")) {
+      return "Sync partially completed. Try again.";
+    }
+    if (
+      normalized.includes("network") ||
+      normalized.includes("failed to fetch") ||
+      normalized.includes("timeout") ||
+      normalized.includes("abort")
+    ) {
+      return "Sync partially completed. Try again.";
+    }
+    return "Sync failed. Please try again.";
+  }, []);
+
+  const runSheetsSync = useCallback(
+    async (
+      scope: "applications" | "talent_pool",
+      payload: { applicationIds?: string[]; candidateIds?: string[]; page: number },
+    ) => {
+      if (syncingTarget !== null) return;
+      setSyncMessage(null);
+
+      const ids =
+        scope === "applications" ? (payload.applicationIds ?? []) : (payload.candidateIds ?? []);
+      if (ids.length === 0) {
+        setSyncMessage({
+          tone: "error",
+          text:
+            scope === "applications"
+              ? "No applications on this page to sync."
+              : "No talent pool candidates on this page to sync.",
+        });
+        return;
+      }
+
+      setSyncingTarget(scope);
+
+      try {
+        const supabase = createSupabaseBrowserClient();
+        if (!supabase) {
+          setSyncMessage({ tone: "error", text: "Supabase is not configured." });
+          return;
+        }
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const accessToken = session?.access_token ?? "";
+        if (!accessToken) {
+          setSyncMessage({ tone: "error", text: "Session expired. Please sign in again." });
+          return;
+        }
+
+        const body =
+          scope === "applications"
+            ? { scope: "applications" as const, application_ids: payload.applicationIds, page: payload.page }
+            : { scope: "talent_pool" as const, candidate_ids: payload.candidateIds, page: payload.page };
+
+        const timeoutController = new AbortController();
+        const timeoutId = window.setTimeout(() => timeoutController.abort(), SYNC_TIMEOUT_MS);
+        const { data, error, status } = await invokeSupabaseFunction<SyncToSheetsResponse>(
+          "sync-to-sheets",
+          body,
+          { accessToken, signal: timeoutController.signal },
+        );
+        window.clearTimeout(timeoutId);
+
+        if (error || !data?.success) {
+          setSyncMessage({
+            tone: "error",
+            text: resolveSyncErrorMessage(error ?? data?.error ?? null, status),
+          });
+          return;
+        }
+
+        const pageLabel = data.page ?? payload.page;
+        const tabLabel = scope === "applications" ? "Applications" : "Talent Pool";
+        const idLabel = scope === "applications" ? "Application ID" : "Candidate ID";
+
+        const appended =
+          scope === "applications"
+            ? (data.applications_synced ?? 0)
+            : (data.talent_pool_synced ?? 0);
+        const skipped =
+          scope === "applications"
+            ? (data.applications_skipped_duplicates ?? 0)
+            : (data.talent_pool_skipped_duplicates ?? 0);
+        const onPage =
+          scope === "applications"
+            ? (data.applications_on_page ?? ids.length)
+            : (data.talent_pool_on_page ?? ids.length);
+
+        const head = `${tabLabel} · Page ${pageLabel} sync completed. This page has ${onPage} entr${onPage === 1 ? "y" : "ies"}.`;
+        let detail: string;
+        if (appended > 0 && skipped > 0) {
+          detail = ` Added ${appended} new row(s) to the "${tabLabel}" tab; skipped ${skipped} already present (same ${idLabel}).`;
+        } else if (appended > 0) {
+          detail = ` Added ${appended} new row(s) to the "${tabLabel}" tab.`;
+        } else if (skipped > 0) {
+          detail = ` No new rows — all ${skipped} were already in the "${tabLabel}" tab.`;
+        } else {
+          detail = "";
+        }
+
+        setSyncMessage({
+          tone: "success",
+          text: `${head}${detail}`.trim(),
+        });
+        setSyncTick((n) => n + 1);
+        bumpStats();
+      } finally {
+        setSyncingTarget(null);
+      }
+    },
+    [bumpStats, resolveSyncErrorMessage, syncingTarget],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.sessionStorage.getItem(ADMIN_TAB_KEY);
+    if (saved === "applications" || saved === "jobs" || saved === "talent") {
+      setActiveTab(saved);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(ADMIN_TAB_KEY, activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -119,29 +255,23 @@ export default function AdminPage() {
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
       try {
-        const [appTotal, jobsActive, newToday, shortlisted, appWeek, allCandidateIds, appliedCandidateIds] =
-          await Promise.all([
-            supabase.from("applications").select("*", { count: "exact", head: true }),
-            supabase.from("jobs").select("*", { count: "exact", head: true }).eq("is_active", true),
-            supabase
-              .from("applications")
-              .select("*", { count: "exact", head: true })
-              .gte("created_at", todayStart)
-              .lt("created_at", tomorrowStart),
-            supabase.from("applications").select("*", { count: "exact", head: true }).ilike("status", "shortlisted"),
-            supabase.from("applications").select("*", { count: "exact", head: true }).gte("created_at", weekAgo),
-            fetchAllCandidateIds(supabase),
-            fetchAllAppliedCandidateIds(supabase),
-          ]);
+        const [appTotal, jobsActive, newToday, shortlisted, appWeek, talentRpc] = await Promise.all([
+          supabase.from("applications").select("*", { count: "exact", head: true }),
+          supabase.from("jobs").select("*", { count: "exact", head: true }).eq("is_active", true),
+          supabase
+            .from("applications")
+            .select("*", { count: "exact", head: true })
+            .gte("created_at", todayStart)
+            .lt("created_at", tomorrowStart),
+          supabase.from("applications").select("*", { count: "exact", head: true }).ilike("status", "shortlisted"),
+          supabase.from("applications").select("*", { count: "exact", head: true }).gte("created_at", weekAgo),
+          supabase.rpc("count_talent_pool_candidates"),
+        ]);
 
         if (cancelled) return;
 
-        let talentPool = 0;
-        for (const candidateId of allCandidateIds) {
-          if (!appliedCandidateIds.has(candidateId)) {
-            talentPool += 1;
-          }
-        }
+        const talentPool =
+          talentRpc.error || talentRpc.data == null ? 0 : Number(talentRpc.data as string | number);
 
         queueMicrotask(() => {
           if (cancelled) return;
@@ -222,11 +352,25 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {syncMessage ? (
+        <p
+          role={syncMessage.tone === "success" ? "status" : "alert"}
+          aria-live={syncMessage.tone === "success" ? "polite" : "assertive"}
+          className={
+            syncMessage.tone === "success"
+              ? "mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+              : "mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+          }
+        >
+          {syncMessage.text}
+        </p>
+      ) : null}
+
       <div className="mt-6">
         <StatsBar stats={stats} />
       </div>
 
-      <Tabs defaultValue="applications" className="mt-8">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
         <TabsList className="flex h-auto w-full flex-col gap-2 rounded-2xl border border-zinc-200/90 bg-white/95 p-2 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/90 sm:flex-row sm:gap-2">
           <TabsTrigger
             value="applications"
@@ -287,13 +431,31 @@ export default function AdminPage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="applications" className="focus-visible:outline-none">
-          <ApplicationsTab supabase={supabase} onStatsBump={bumpStats} />
+          <ApplicationsTab
+            key={`applications-${syncTick}`}
+            supabase={supabase}
+            onStatsBump={bumpStats}
+            onSyncApplications={(payload) =>
+              void runSheetsSync("applications", {
+                applicationIds: payload.applicationIds,
+                page: payload.page,
+              })
+            }
+            syncingTarget={syncingTarget}
+          />
         </TabsContent>
         <TabsContent value="jobs" className="focus-visible:outline-none">
           <JobsTab supabase={supabase} onStatsBump={bumpStats} />
         </TabsContent>
         <TabsContent value="talent" className="focus-visible:outline-none">
-          <TalentPoolTab supabase={supabase} />
+          <TalentPoolTab
+            key={`talent-${syncTick}`}
+            supabase={supabase}
+            onSyncTalentPool={(payload) =>
+              void runSheetsSync("talent_pool", { candidateIds: payload.candidateIds, page: payload.page })
+            }
+            syncingTarget={syncingTarget}
+          />
         </TabsContent>
       </Tabs>
     </main>
