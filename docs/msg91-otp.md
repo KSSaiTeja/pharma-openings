@@ -2,15 +2,23 @@
 
 Candidate **Send OTP** / **Verify** use Supabase Edge Functions `send-otp` and `verify-otp`. When MSG91 credentials are present on the function, OTP is generated and validated by MSG91 (not stored as plaintext in Postgres).
 
-## 1. MSG91 dashboard
+## 1. MSG91 dashboard — use **SendOTP**, not the Widget
 
-1. Sign in at [MSG91](https://msg91.com/).
-2. Open **OTP** (or **Flow** / **API**) and create an **OTP template** approved for India DLT if required.
-3. Copy:
-   - **Auth key** (API key).
-   - **Template ID** for that OTP template.
+After you open **OTP** in the left menu, MSG91 shows two different products:
 
-Ensure the template delivers a **4-digit** OTP so it matches the app UI (`OtpBoxes` length).
+| Area in the sidebar | What it is | Do you need it? |
+|---------------------|------------|------------------|
+| **OTP Widget / SDK** (“Get Started”, Create Widget, Tokens, …) | Embeddable widget + client SDK for their UI | **No.** Our Next.js app does not use this. You can ignore “Create Widget” for PharmaOpenings. |
+| **SendOTP** (subsection with **Templates**, Logs, Webhook, …) | Server API: send SMS OTP + verify by API | **Yes.** This matches what the Supabase Edge Functions call (`/api/v5/otp` and `/api/v5/otp/verify`). |
+
+**What to do step by step**
+
+1. In the left sidebar, under **SendOTP** (not Widget), open **Templates**.
+2. Create an OTP SMS template (or use an existing one) and complete **India DLT** steps in MSG91 if the panel asks for them — otherwise SMS will not deliver.
+3. Copy the **Template ID** for that OTP template (often a long alphanumeric id).
+4. Copy your **Auth key** (authentication key for API). It is usually under **account / profile → API**, **Developer**, or **Integrations** (wording varies). It is *not* the Widget “auth token” from the Widget SDK screen.
+
+Ensure the template is configured for a **4-digit** OTP so it matches the app (`OtpBoxes` length).
 
 ## 2. Supabase Edge Function secrets
 
