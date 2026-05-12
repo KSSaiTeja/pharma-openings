@@ -58,6 +58,24 @@ Official MSG91 help (good next clicks):
 
 Our UI expects a **4-digit** OTP. When you create the template / SendOTP flow in MSG91, choose **4 digits** if the panel offers length — otherwise users may receive 6 digits while the form only accepts 4.
 
+### MSG91 “Create Template” popup — what each field means
+
+| Field | What to enter |
+|--------|----------------|
+| **Template name** | Any **internal** label for you only (e.g. `PharmaOpenings login OTP`). Customers do not see this. |
+| **Select Sender ID** | The **Header** you already set up (e.g. `PHAROPEN`). It should match what is **approved on DLT** for your entity. |
+| **DLT Template ID** | The **content template id** from your **Indian DLT portal** — the id assigned **after** you submit the **exact SMS wording** (including the OTP placeholder) and that template is **approved**. It is **not** your company PE id and **not** the MSG91 Template ID you will use in code later. If you do not have this yet, you must **create + approve** the same message on the DLT site first, then copy the id they show (wording varies: “Template ID”, “Content Template ID”, etc.). |
+| **OTP Content** | The **SMS body** that must **match** what you got approved on DLT (same words, same variable idea). Use **+ Add variable** so the changing OTP is a placeholder. MSG91’s hint (`##name##`, `##number##`, …) means: for SendOTP, use the variable name **MSG91 documents for OTP** (often `##otp##` — confirm in [MSG91 SendOTP / template docs](https://msg91.com/help/sendotp/where-to-find-the-sendotp-api-how-to-get-template-id)). The text you type here is what subscribers see, minus the live digits filled in by MSG91. |
+
+**Order of work (so nothing is confusing):**
+
+1. On the **DLT portal**, create and submit an **OTP SMS content template** (with their required variable format, often `{#var#}` on the government-style form — follow **that** portal’s rules).
+2. Wait until that template is **approved** and the portal shows a **template / content id** — that value goes in **DLT Template ID** in MSG91.
+3. In MSG91 **OTP Content**, paste the **same approved sentence**, using MSG91’s variable style (`##otp##` or whatever their doc says for SendOTP) so MSG91 can inject the code.
+4. Click **Create** in MSG91. After that, MSG91 will show a **different** id — the **MSG91 SendOTP Template ID** — for use in `MSG91_OTP_TEMPLATE_ID` in Supabase.
+
+If **DLT Template ID** is empty because you have not finished DLT content approval yet, you usually **cannot** complete a valid India production template in MSG91 until that id exists.
+
 ### What you’ll send the engineering side later (safely)
 
 When you’re done in MSG91:
