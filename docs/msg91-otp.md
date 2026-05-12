@@ -29,6 +29,25 @@ In practice you usually complete:
 
 5. **Map the approved template in MSG91** — after DLT approves the template, you link that DLT template to MSG91 so **SendOTP** can use it. MSG91 then shows you a **Template ID** you use in our API integration.
 
+### “DLT ID” vs “Template ID” — what people mean
+
+People say **“DLT ID”** for a few different things. In MSG91 forms it often means one of these:
+
+| Name (typical) | What it is | Where you usually get it |
+|----------------|------------|---------------------------|
+| **Principal Entity (PE) ID** / **Entity ID** | Your **company’s** registration id on India’s DLT system (who is allowed to send). | The **DLT portal** where you registered your business (e.g. your operator’s DLT site, or the portal MSG91 tells you to use). It appears in your **entity / company profile** after registration is approved — not inside random MSG91 OTP screens. |
+| **DLT content template ID** | The id **for one specific SMS text** after that text is approved on DLT. | Same DLT portal, under **templates** / **content** — after you submit the OTP message layout and it is **approved**. |
+| **MSG91 Template ID** (SendOTP) | The id **MSG91** gives you after you **map** the approved DLT template into MSG91. | **SendOTP → Templates** in MSG91. This is what we put in `MSG91_OTP_TEMPLATE_ID`. |
+
+So: **PE / entity “DLT ID”** comes from **DLT entity registration**, not from inventing a number in the Sender ID popup.
+
+### Can I save country + Sender ID without a DLT / PE id?
+
+- **If the field is optional** (no red asterisk, or “Skip / Add later”) — yes: enter **India** + **Header**, create, and continue. MSG91 may ask for PE / mapping on the **next** step or when you go live.
+- **If “DLT ID” / “PE ID” is required** (red error, Create blocked) — you **cannot** skip it for that step. You must finish **entity (PE) registration** on the Indian DLT side first (MSG91’s **“Help Doc for Indian DLT entity/PE ID”** link in the modal is the right starting point). After approval, the portal shows your **PE ID**; you paste that into MSG91 where they ask for it.
+
+You do **not** choose a PE id yourself — the DLT platform **issues** it after they verify your company.
+
 Official MSG91 help (good next clicks):
 
 - [Get approval for SMS content on DLT](https://msg91.com/help/get-approval-for-your-sms-content-on-dlt-platform)
