@@ -2,6 +2,52 @@
 
 Candidate **Send OTP** / **Verify** use Supabase Edge Functions `send-otp` and `verify-otp`. When MSG91 credentials are present on the function, OTP is generated and validated by MSG91 (not stored as plaintext in Postgres).
 
+## New to SMS OTP and India DLT? Start here
+
+This section is **concept-only** (not legal advice). Use MSG91’s wizards and your operator DLT portal as the source of truth.
+
+### What “OTP SMS” means here
+
+- A user enters their mobile number on your site.
+- Your **server** asks MSG91 to **send one SMS** containing a short numeric code.
+- The user types that code into your site; your **server** asks MSG91 to **check** if it matches what they sent.
+- You never invent the SMS text at send time in code — the **text must match a pre-approved template** on India’s DLT system.
+
+### What “DLT approved” means (India)
+
+India’s telecom rules (TRAI) require businesses to register **who** is sending SMS and **exactly which message patterns** are allowed. That registry is often called **DLT** (Distributed Ledger Technology) in vendor docs.
+
+In practice you usually complete:
+
+1. **Principal entity (PE) / telemarketer** registration — MSG91 is often your SMS provider; you still register **your** company/brand as the entity sending messages. MSG91’s DLT help pages walk through this.
+2. **Sender ID (Header)** — the short name users see as the SMS sender (e.g. `PHARMA` — rules vary; must be approved).
+3. **Content template** — one fixed SMS **layout** with a placeholder where the **OTP digits** go. Example *shape* (your DLT portal will require an exact variable syntax, e.g. `{#var#}` — **use theirs, not this sentence verbatim**):
+
+   > `{#var#} is your OTP for PharmaOpenings. Valid 5 mins. Do not share. - PHARMAOPENINGS`
+
+4. **Approval** — an operator / DLT admin reviews the template. This often takes **a few business days** (sometimes longer).
+
+5. **Map the approved template in MSG91** — after DLT approves the template, you link that DLT template to MSG91 so **SendOTP** can use it. MSG91 then shows you a **Template ID** you use in our API integration.
+
+Official MSG91 help (good next clicks):
+
+- [Get approval for SMS content on DLT](https://msg91.com/help/get-approval-for-your-sms-content-on-dlt-platform)
+- [DLT content template FAQs](https://msg91.com/help/dlt-registration-in-india/dlt-content-template-faqs)
+- [Map approved DLT template on MSG91](https://msg91.com/help/dlt-registration-in-india/map-sms-content-template-on-msg91-api-panel) (includes **Send OTP V5** mapping)
+
+### OTP length (important for this app)
+
+Our UI expects a **4-digit** OTP. When you create the template / SendOTP flow in MSG91, choose **4 digits** if the panel offers length — otherwise users may receive 6 digits while the form only accepts 4.
+
+### What you’ll send the engineering side later (safely)
+
+When you’re done in MSG91:
+
+- **Template ID** from **SendOTP → Templates** (the id our env `MSG91_OTP_TEMPLATE_ID` expects).
+- **Auth key** — set only in **Supabase Edge Function secrets**, never in public chat or in frontend env files.
+
+You do **not** need to paste the full SMS template text into the codebase; MSG91 already tied the approved text to that template id.
+
 ## 1. MSG91 dashboard — use **SendOTP**, not the Widget
 
 After you open **OTP** in the left menu, MSG91 shows two different products:
