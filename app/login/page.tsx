@@ -146,7 +146,7 @@ export default function LoginPage() {
             Sign in with mobile OTP
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-[var(--color-po-muted)]">
-            Enter the mobile number you used to register. Demo tip: you can use 1234 as the OTP.
+            Enter the mobile number you used to register. We&apos;ll send a one-time code by SMS.
           </p>
 
           {error ? (

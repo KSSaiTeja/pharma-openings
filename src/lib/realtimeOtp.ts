@@ -17,12 +17,21 @@ export function isRealtimeOtpEnabled(): boolean {
   return v === "1" || v === "true" || v === "yes" || v === "on";
 }
 
+/** Matches `MSG91_OTP_ROW_MARKER` in `supabase/functions/_shared/msg91.ts` — never auto-fill. */
+const MSG91_OTP_ROW_MARKER = "__MSG91__";
+
 function extractCode(row: Record<string, unknown> | null | undefined): string | null {
   if (!row) return null;
   const c = row.code;
-  if (typeof c === "string" && c.length >= 4) return c;
+  if (typeof c === "string" && c.length >= 4) {
+    if (c === MSG91_OTP_ROW_MARKER) return null;
+    return c;
+  }
   const legacy = row.otp_code;
-  if (typeof legacy === "string" && legacy.length >= 4) return legacy;
+  if (typeof legacy === "string" && legacy.length >= 4) {
+    if (legacy === MSG91_OTP_ROW_MARKER) return null;
+    return legacy;
+  }
   return null;
 }
 

@@ -550,7 +550,7 @@ export default function RegisterPage() {
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-[var(--color-po-muted)]">
             {step === 1
-              ? "We’ll send a one-time code to confirm your number. Demo tip: you can use 1234 as the OTP."
+              ? "We’ll send a one-time code by SMS to confirm your number. Enter it below when it arrives."
               : "Tell us a bit about your background so we can match you to the right roles. When you’re done, we’ll take you to job listings."}
           </p>
 

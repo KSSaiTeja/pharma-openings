@@ -1,6 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  MSG91_OTP_ROW_MARKER,
+  formatIndiaMsg91Mobile,
+  msg91OtpConfigured,
+  msg91VerifyOtp,
+} from "../_shared/msg91.ts";
+
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -28,8 +35,13 @@ function json(body: unknown, status: number) {
   });
 }
 
-/** Default true when unset (dev-friendly). False only for explicit falsey tokens. */
+/**
+ * Default true when unset (dev-friendly: OTP `1234` works against latest pending row).
+ * Disabled when MSG91 credentials are set (real SMS OTP). Otherwise false only for
+ * explicit falsey `OTP_DEMO_BYPASS`.
+ */
 function isDemoBypassEnabled(): boolean {
+  if (msg91OtpConfigured()) return false;
   const raw = Deno.env.get("OTP_DEMO_BYPASS");
   if (raw === undefined || raw === null || String(raw).trim() === "") return true;
   const v = String(raw).trim().toLowerCase();
@@ -141,7 +153,71 @@ Deno.serve(async (req) => {
 
     let matchedId: string | null = null;
 
-    if (demoBypass && isDemoCode) {
+    const e164 = formatIndiaMsg91Mobile(mobile);
+    const secret = latest ? storedCode(latest) : null;
+    const useMsg91 =
+      msg91OtpConfigured() &&
+      Boolean(latest?.id) &&
+      Boolean(e164) &&
+      secret === MSG91_OTP_ROW_MARKER;
+
+    if (latest?.id && msg91OtpConfigured() && secret === MSG91_OTP_ROW_MARKER && !e164) {
+      return json(
+        {
+          error: "Enter a valid 10-digit Indian mobile number (or include country code 91).",
+          code: "validation_error",
+        },
+        400,
+      );
+    }
+
+    const bumpWrongAttempt = async (): Promise<Response> => {
+      if (!latest?.id) {
+        return json({ error: STABLE.invalid, code: "otp_invalid" }, 400);
+      }
+      const prev = latest.attempts ?? 0;
+      const nextAttempts = prev + 1;
+      const { error: upErr } = await supabase
+        .from("otp_codes")
+        .update({ attempts: nextAttempts })
+        .eq("id", latest.id);
+      if (upErr) {
+        console.error("verify-otp attempt update failed");
+        return json({ error: "Verification failed. Please try again.", code: "update_failed" }, 500);
+      }
+
+      if (nextAttempts >= MAX_WRONG_ATTEMPTS) {
+        const lockOk = await applyLockout(supabase, mobile);
+        if (!lockOk) {
+          return json(
+            { error: "Verification failed. Please try again.", code: "lockout_failed" },
+            500,
+          );
+        }
+        const mins = Math.max(1, Math.ceil(LOCKOUT_MS / 60_000));
+        return json(
+          {
+            error: `${STABLE.lockBase} Try again in about ${mins} minute(s).`,
+            code: "otp_locked",
+          },
+          423,
+        );
+      }
+
+      return json({ error: STABLE.invalid, code: "otp_invalid" }, 400);
+    };
+
+    if (useMsg91 && latest && e164) {
+      const expiresAtMs = new Date(latest.expires_at).getTime();
+      if (expiresAtMs <= Date.now()) {
+        return json({ error: STABLE.expired, code: "otp_expired" }, 400);
+      }
+      const vr = await msg91VerifyOtp(e164, otp);
+      if (!vr.ok) {
+        return await bumpWrongAttempt();
+      }
+      matchedId = latest.id;
+    } else if (demoBypass && isDemoCode) {
       if (!latest?.id) {
         return json({ error: STABLE.sendFirst, code: "otp_invalid" }, 400);
       }
@@ -156,43 +232,14 @@ Deno.serve(async (req) => {
         return json({ error: STABLE.expired, code: "otp_expired" }, 400);
       }
 
-      const secret = storedCode(latest);
-      if (!secret) {
+      const secretLocal = storedCode(latest);
+      if (!secretLocal) {
         console.error("verify-otp row missing code column");
         return json({ error: "Verification failed. Please try again.", code: "lookup_failed" }, 500);
       }
 
-      if (otp !== secret) {
-        const prev = latest.attempts ?? 0;
-        const nextAttempts = prev + 1;
-        const { error: upErr } = await supabase
-          .from("otp_codes")
-          .update({ attempts: nextAttempts })
-          .eq("id", latest.id);
-        if (upErr) {
-          console.error("verify-otp attempt update failed");
-          return json({ error: "Verification failed. Please try again.", code: "update_failed" }, 500);
-        }
-
-        if (nextAttempts >= MAX_WRONG_ATTEMPTS) {
-          const lockOk = await applyLockout(supabase, mobile);
-          if (!lockOk) {
-            return json(
-              { error: "Verification failed. Please try again.", code: "lockout_failed" },
-              500,
-            );
-          }
-          const mins = Math.max(1, Math.ceil(LOCKOUT_MS / 60_000));
-          return json(
-            {
-              error: `${STABLE.lockBase} Try again in about ${mins} minute(s).`,
-              code: "otp_locked",
-            },
-            423,
-          );
-        }
-
-        return json({ error: STABLE.invalid, code: "otp_invalid" }, 400);
+      if (otp !== secretLocal) {
+        return await bumpWrongAttempt();
       }
 
       matchedId = latest.id;

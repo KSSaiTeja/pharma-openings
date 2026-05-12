@@ -1,6 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  MSG91_OTP_ROW_MARKER,
+  formatIndiaMsg91Mobile,
+  msg91OtpConfigured,
+  msg91SendOtp,
+} from "../_shared/msg91.ts";
+
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -74,8 +81,29 @@ Deno.serve(async (req) => {
       );
     }
 
-    const otp = String(Math.floor(1000 + Math.random() * 9000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    let otp: string;
+
+    if (msg91OtpConfigured()) {
+      const e164 = formatIndiaMsg91Mobile(mobile);
+      if (!e164) {
+        return json(
+          {
+            error: "Enter a valid 10-digit Indian mobile number (or include country code 91).",
+            code: "validation_error",
+          },
+          400,
+        );
+      }
+      const sent = await msg91SendOtp(e164);
+      if (!sent.ok) {
+        console.error("send-otp MSG91:", sent.message);
+        return json({ error: sent.message, code: "sms_send_failed" }, 502);
+      }
+      otp = MSG91_OTP_ROW_MARKER;
+    } else {
+      otp = String(Math.floor(1000 + Math.random() * 9000));
+    }
 
     const insertVariants: Record<string, unknown>[] = [
       { mobile, code: otp, expires_at: expiresAt, verified: false, attempts: 0 },
