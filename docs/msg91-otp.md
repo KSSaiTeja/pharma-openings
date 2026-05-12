@@ -48,6 +48,18 @@ So: **PE / entity “DLT ID”** comes from **DLT entity registration**, not fro
 
 You do **not** choose a PE id yourself — the DLT platform **issues** it after they verify your company.
 
+### Which operator DLT portal should I use?
+
+**You do not pick the portal from “which network my MSG91 / business phone is on.”** MSG91 is an **SMS provider (aggregator)**, not Airtel/Jio/Vi. The number you use to log into MSG91 does **not** decide which DLT website to use.
+
+For **Principal Entity (PE) registration** and **templates**, you choose **one** official Indian DLT portal and complete entity + header + content template there. After approval, you map those ids back in MSG91.
+
+MSG91’s own guidance is: you can register on **any** of the major operator DLT platforms; they explicitly recommend picking **one** from e.g. **Videocon, Airtel, Vi (VILPower), or Jio** (see [Entity registration on DLT platform](https://msg91.com/help/dlt-registration-in-india/entity-registration-on-dlt-platform)). They also document **SmartPing** as an option some teams use for quicker KYC flows.
+
+**Practical approach:** open MSG91’s doc above, pick **one** portal (many teams use **Jio Trueconnect** or **Vi VILPower** or **Airtel** based on familiarity), register your **company** as PE, then add **Header** + **OTP content template** on that same portal. Use the **DLT template id** from that portal in MSG91’s **Create Template** form.
+
+Templates/headers are tied to your **registered entity**, not to “the carrier of my phone number.”
+
 Official MSG91 help (good next clicks):
 
 - [Get approval for SMS content on DLT](https://msg91.com/help/get-approval-for-your-sms-content-on-dlt-platform)
