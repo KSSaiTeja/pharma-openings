@@ -11,4 +11,3 @@ export type { JobCardProps } from "./JobCard";
 export { PartnerLogos } from "./PartnerLogos";
 export { PopularJobs } from "./PopularJobs";
 export { SectionHeader } from "./SectionHeader";
-export { StatsBanner } from "./StatsBanner";

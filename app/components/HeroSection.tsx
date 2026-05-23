@@ -66,7 +66,7 @@ export function HeroSection() {
               talent
             </span>
             <span className="text-[clamp(2rem,5vw,80px)] leading-[1.05] lg:text-[80px]">
-              meets opportunity
+              meets global opportunities
             </span>
           </span>
         </motion.h1>
@@ -75,8 +75,8 @@ export function HeroSection() {
           variants={fadeSlideUp}
           className="max-w-[554px] text-lg leading-relaxed text-[#373a46]/80"
         >
-         Explore curated listings from leading
-          pharmaceutical employers—whether you are advancing your career or
+          Global opportunities for pharma sector employees—curated roles from
+          leading employers worldwide, whether you are advancing your career or
           taking your first step into the field.
         </motion.p>
 
@@ -135,9 +135,9 @@ export function HeroSection() {
               Curated roles from innovators worldwide
             </p>
             <div className="flex flex-wrap justify-center gap-2 sm:gap-2.5">
-              <TrustPill>Research &amp; development</TrustPill>
-              <TrustPill>Clinical &amp; regulatory</TrustPill>
-              <TrustPill>Commercial</TrustPill>
+              <TrustPill>Production</TrustPill>
+              <TrustPill>Quality Control</TrustPill>
+              <TrustPill>Quality Assurance</TrustPill>
             </div>
           </div>
         </motion.div>

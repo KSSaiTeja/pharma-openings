@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "PharmaOpenings — Pharmaceutical careers & job search",
   description:
-    "Explore active pharmaceutical openings and discover hiring teams across research, manufacturing, and commercial functions.",
+    "Global opportunities for pharma sector employees—active openings and hiring teams across research, manufacturing, and commercial functions.",
 };
 
 export default async function Home() {

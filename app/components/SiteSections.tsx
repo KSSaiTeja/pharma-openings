@@ -5,7 +5,6 @@ import {
   FeatureShowcase,
   PartnerLogos,
   PopularJobs,
-  StatsBanner,
 } from "./landing";
 
 import type { JobRow } from "@/types/database.types";
@@ -22,7 +21,6 @@ type SiteSectionsProps = {
 export function SiteSections({ homeJobs, homeJobsLoadError }: SiteSectionsProps) {
   return (
     <div className="bg-[#f7f4fd] text-[#1e1b36]">
-      <StatsBanner />
       <PartnerLogos />
       <EmployersStrip />
       <FeatureShowcase />

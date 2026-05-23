@@ -12,39 +12,16 @@ export const LANDING_MEDIA_PATHS: Partial<Record<FeatureImageKey, string>> = {
   // coordination: "/landing/coordination.png",
 };
 
-export const STATS_BANNER = {
-  highlight: {
-    rank: "#1",
-    title: "Pharma talent",
-    description:
-      "A focused destination for regulated-industry careers—from discovery to patients.",
-  },
-  stats: [
-    {
-      headline: "2.1k+",
-      description: "Roles curated and refreshed for relevance",
-    },
-    {
-      headline: "180+",
-      description: "Employer organizations represented on the platform",
-    },
-    {
-      headline: "45+",
-      description: "Therapeutic and functional areas covered",
-    },
-  ],
-} as const;
-
 export const PARTNERS_SECTION = {
   badge: "Trusted partners",
   title: "Connecting pharmaceutical leaders with exceptional talent",
   /** Placeholder monograms—swap for SVG logos when available. */
   partners: [
-    { id: "1", name: "Vertex Labs", initials: "VL" },
-    { id: "2", name: "Helix Bio", initials: "HB" },
-    { id: "3", name: "Nova Therapeutics", initials: "NT" },
-    { id: "4", name: "Catalyst Pharma", initials: "CP" },
-    { id: "5", name: "Aegis Clinical", initials: "AC" },
+    { id: "1", name: "India", initials: "India" },
+    { id: "2", name: "USA", initials: "USA" },
+    { id: "3", name: "Germany", initials: "Germany" },
+    { id: "4", name: "China", initials: "China" },
+    { id: "5", name: "Switzerland", initials: "Switzerland" },
   ] as const,
 };
 
@@ -125,7 +102,7 @@ export const JOB_LISTINGS = [
 
 export const EMPLOYERS_STRIP = {
   title: "Hiring on PharmaOpenings?",
-  body: "Reach candidates who already speak GxP, protocols, and cross-functional science.",
+  body: "Reach potential candidates with Good Skillset and Experience",
   cta: "Partner with us",
   href: "#contact",
 } as const;
