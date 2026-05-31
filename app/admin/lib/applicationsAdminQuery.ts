@@ -8,8 +8,8 @@ export function sanitizeAdminIlikeSearch(raw: string): string {
 
 export function adminApplicationsSelect(moduleFilterSize: number): string {
   return moduleFilterSize > 0
-    ? "*, jobs!inner(title, module, location)"
-    : "*, jobs(title, module, location)";
+    ? "*, jobs!inner(title, module, location, job_code)"
+    : "*, jobs(title, module, location, job_code)";
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,7 +33,9 @@ export function applyAdminApplicationsFilters(q: any, params: {
   const safe = sanitizeAdminIlikeSearch(params.search);
   if (safe) {
     const pat = `%${safe}%`;
-    x = x.or(`full_name.ilike.${pat},email.ilike.${pat},mobile.ilike.${pat}`);
+    x = x.or(
+      `full_name.ilike.${pat},email.ilike.${pat},mobile.ilike.${pat},jobs.job_code.ilike.${pat}`,
+    );
   }
   if (params.moduleFilter.size > 0) {
     x = x.in("jobs.module", Array.from(params.moduleFilter));

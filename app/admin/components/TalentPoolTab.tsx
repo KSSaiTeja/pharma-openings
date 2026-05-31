@@ -3,6 +3,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { startTransition, useCallback, useEffect, useState } from "react";
 
+import {
+  AdminActionsGroup,
+  AdminAlert,
+  AdminFilterLabel,
+  AdminFormField,
+  AdminHint,
+  AdminPanel,
+  AdminPanelField,
+  AdminPagination,
+  AdminSection,
+  AdminTableWrap,
+  adminDialogClass,
+} from "@/app/admin/components/AdminUi";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,7 +26,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -185,20 +197,12 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
   }, [activeCandidate, load, noteBody, sessionEmail, supabase]);
 
   return (
-    <div className="space-y-4">
-      {err ? (
-        <p
-          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
-          role="alert"
-          aria-live="assertive"
-        >
-          {err}
-        </p>
-      ) : null}
+    <AdminSection>
+      {err ? <AdminAlert variant="error">{err}</AdminAlert> : null}
 
-      <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950 sm:flex-row sm:flex-wrap sm:items-end">
-        <div className="grid w-full gap-2 sm:w-44">
-          <Label className="text-xs">Module</Label>
+      <AdminPanel>
+        <AdminPanelField size="md">
+          <AdminFilterLabel>Module</AdminFilterLabel>
           <Select value={moduleFilter} onValueChange={setModuleFilter}>
             <SelectTrigger>
               <SelectValue placeholder="Module" />
@@ -212,9 +216,9 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="grid w-full gap-2 sm:w-44">
-          <Label className="text-xs">Qualification</Label>
+        </AdminPanelField>
+        <AdminPanelField size="md">
+          <AdminFilterLabel>Qualification</AdminFilterLabel>
           <Select value={qualFilter} onValueChange={setQualFilter}>
             <SelectTrigger>
               <SelectValue placeholder="Qualification" />
@@ -228,9 +232,9 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="grid w-full min-w-0 flex-1 gap-2 sm:min-w-[200px]">
-          <Label className="text-xs">Location</Label>
+        </AdminPanelField>
+        <AdminPanelField size="grow">
+          <AdminFilterLabel>Location</AdminFilterLabel>
           <Select value={locationFilter} onValueChange={setLocationFilter}>
             <SelectTrigger>
               <SelectValue placeholder="Location" />
@@ -244,22 +248,23 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="grid w-full min-w-0 flex-1 gap-2 sm:min-w-[200px]">
-          <Label className="text-xs">Search</Label>
+        </AdminPanelField>
+        <AdminPanelField size="grow">
+          <AdminFilterLabel>Search</AdminFilterLabel>
           <Input
             placeholder="Name, email, mobile…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
-        <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:justify-end">
-          <Button type="button" variant="secondary" onClick={() => void load()} disabled={loading}>
+        </AdminPanelField>
+        <AdminActionsGroup>
+          <Button type="button" variant="secondary" className="po-admin-btn-outline" onClick={() => void load()} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
           </Button>
           <Button
             type="button"
             variant="outline"
+            className="po-admin-btn-outline"
             onClick={() => onSyncTalentPool({ candidateIds: candidates.map((c) => c.id), page })}
             disabled={syncingTarget !== null || candidates.length === 0 || loading}
           >
@@ -267,23 +272,23 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
               ? `Syncing talent pool (page ${page})…`
               : `Sync talent pool — page ${page}`}
           </Button>
-        </div>
-      </div>
+        </AdminActionsGroup>
+      </AdminPanel>
 
       {!loading && totalCount > 0 ? (
-        <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">Talent Pool sheet · Page {page}</span> — appends
-          to the <span className="font-medium">Talent Pool</span> tab only; skips candidates already in the sheet (same
-          Candidate ID). Use the <span className="font-medium">Applications</span> tab for job applications.
-        </p>
+        <AdminHint>
+          <span className="po-admin-hint__emph">Talent Pool sheet · Page {page}</span> — appends to the{" "}
+          <strong>Talent Pool</strong> tab only; skips candidates already in the sheet (same Candidate ID). Use the{" "}
+          <strong>Applications</strong> tab for job applications.
+        </AdminHint>
       ) : null}
 
-      <p className="text-sm text-zinc-600 dark:text-zinc-300">
+      <p className="text-sm text-[var(--po-admin-muted)]">
         Showing {candidates.length.toLocaleString()} on this page · {totalCount.toLocaleString()} matching · candidates
         with no applications yet
       </p>
 
-      <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+      <AdminTableWrap>
         <Table>
           <caption className="sr-only">Talent pool candidates with no applications yet</caption>
           <TableHeader>
@@ -305,13 +310,13 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center text-sm text-zinc-500">
+                <TableCell colSpan={12} className="po-admin-table-empty">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : totalCount === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center text-sm text-zinc-500">
+                <TableCell colSpan={12} className="po-admin-table-empty">
                   No talent pool entries match these filters.
                 </TableCell>
               </TableRow>
@@ -334,7 +339,7 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
                   <TableCell className="hidden lg:table-cell">
                     <button
                       type="button"
-                      className="max-w-[180px] truncate rounded-sm text-left text-xs font-medium text-zinc-800 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 dark:text-zinc-200 dark:focus-visible:ring-zinc-500"
+                      className="po-admin-link max-w-[180px] truncate rounded-sm text-left text-xs font-medium underline-offset-2 hover:underline"
                       onClick={() => void openCandidateNotes(c)}
                     >
                       View / add notes
@@ -346,7 +351,7 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
                         href={c.resume_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-sm font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                        className="po-admin-link text-sm font-medium underline-offset-2 hover:underline"
                       >
                         View
                       </a>
@@ -362,18 +367,17 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
             )}
           </TableBody>
         </Table>
-      </div>
+      </AdminTableWrap>
 
       {!loading && totalCount > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-          <span className="tabular-nums">
-            Page {page} of {totalPages}
-          </span>
-          <div className="flex flex-wrap gap-2">
+        <AdminPagination
+          label={<span className="tabular-nums">Page {page} of {totalPages}</span>}
+        >
             <Button
               type="button"
               variant="outline"
               size="sm"
+              className="po-admin-btn-outline"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
@@ -383,13 +387,13 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
               type="button"
               variant="outline"
               size="sm"
+              className="po-admin-btn-outline"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
               Next
             </Button>
-          </div>
-        </div>
+        </AdminPagination>
       ) : null}
 
       <Dialog
@@ -403,57 +407,53 @@ export function TalentPoolTab({ supabase, onSyncTalentPool, syncingTarget }: Pro
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Candidate notes</DialogTitle>
-            <DialogDescription>
-              {activeCandidate ? `${activeCandidate.full_name} (${activeCandidate.mobile})` : ""}
+        <DialogContent className={adminDialogClass}>
+          <DialogHeader className="po-admin-dialog__header">
+            <DialogTitle className="po-admin-dialog__title">Candidate notes</DialogTitle>
+            <DialogDescription className="po-admin-dialog__description">
+              {activeCandidate ? `${activeCandidate.full_name} · ${activeCandidate.mobile}` : ""}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
+          <div className="po-admin-dialog__body po-admin-dialog__body--form">
             {dialogNotes.length === 0 ? (
-              <p className="text-sm text-zinc-500">No notes yet. Add one below.</p>
+              <p className="text-sm text-[var(--po-admin-muted)]">No notes yet. Add one below.</p>
             ) : (
-              <div className="max-h-60 space-y-2 overflow-y-auto rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+              <div className="po-admin-notes-list">
                 {dialogNotes.map((note) => (
-                  <article key={note.id} className="rounded-md border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-700 dark:bg-zinc-900">
-                    <p className="whitespace-pre-wrap text-sm text-zinc-800 dark:text-zinc-200">{note.body}</p>
-                    <p className="mt-1 text-[11px] text-zinc-500">
-                      {note.admin_email ?? "admin"} - {formatAppliedAt(note.created_at)}
+                  <article key={note.id} className="po-admin-note">
+                    <p className="whitespace-pre-wrap text-sm text-[var(--po-admin-text)]">{note.body}</p>
+                    <p className="po-admin-note__meta">
+                      {note.admin_email ?? "admin"} · {formatAppliedAt(note.created_at)}
                     </p>
                   </article>
                 ))}
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="candidate-note">Add note</Label>
+            <AdminFormField label="Add note" htmlFor="candidate-note">
               <Textarea
                 id="candidate-note"
+                className="po-admin-control min-h-[100px]"
                 value={noteBody}
                 onChange={(event) => setNoteBody(event.target.value)}
-                placeholder="Write an internal note..."
+                placeholder="Write an internal note…"
                 rows={4}
               />
-              {noteErr ? (
-                <p className="text-xs text-red-600" role="alert" aria-live="assertive">
-                  {noteErr}
-                </p>
-              ) : null}
-            </div>
+            </AdminFormField>
+            {noteErr ? <AdminAlert variant="error">{noteErr}</AdminAlert> : null}
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setActiveCandidate(null)} disabled={noteBusy}>
+          <DialogFooter className="po-admin-dialog__footer">
+            <Button type="button" variant="outline" className="po-admin-btn-outline" onClick={() => setActiveCandidate(null)} disabled={noteBusy}>
               Close
             </Button>
-            <Button type="button" onClick={() => void submitNote()} disabled={noteBusy}>
-              {noteBusy ? "Saving..." : "Save note"}
+            <Button type="button" className="po-admin-btn-primary" onClick={() => void submitNote()} disabled={noteBusy}>
+              {noteBusy ? "Saving…" : "Save note"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminSection>
   );
 }

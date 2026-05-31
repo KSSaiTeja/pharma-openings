@@ -21,7 +21,12 @@ export type AdminApplicationRow = {
   snapshot_company?: string | null;
   highest_qualification?: string | null;
   snapshot_qualification?: string | null;
-  jobs?: { title: string; module: string | null; location?: string | null } | null;
+  jobs?: {
+    title: string;
+    module: string | null;
+    location?: string | null;
+    job_code?: string | null;
+  } | null;
 };
 
 export function applicationDesignation(r: AdminApplicationRow): string | null {

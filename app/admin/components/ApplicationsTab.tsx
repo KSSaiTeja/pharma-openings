@@ -12,6 +12,22 @@ import {
   statusFromDb,
   statusToDb,
 } from "@/app/admin/admin-constants";
+import {
+  AdminActions,
+  AdminActionsGroup,
+  AdminAlert,
+  AdminDetailGrid,
+  AdminDetailItem,
+  AdminFilterLabel,
+  AdminHint,
+  AdminPanel,
+  AdminPanelField,
+  AdminPagination,
+  AdminSection,
+  AdminSelectBar,
+  AdminTableWrap,
+  adminDialogClass,
+} from "@/app/admin/components/AdminUi";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -60,7 +76,7 @@ import type { Database } from "@/types/database.types";
 type Props = {
   supabase: SupabaseClient<Database>;
   onStatsBump: () => void;
-  /** Appends only new Application IDs from this page to the **Applications** sheet tab (deduped). */
+  /** Appends new rows to the **Applications** sheet (deduped by Application ID) and includes **Job ID** for recruiters. */
   onSyncApplications: (payload: { applicationIds: string[]; page: number }) => void;
   /** When non-null, a sync is in progress (any tab); buttons stay disabled to avoid overlapping requests. */
   syncingTarget: null | "applications" | "talent_pool";
@@ -85,7 +101,7 @@ function downloadCsv(filename: string, rows: Record<string, string>[]) {
   URL.revokeObjectURL(url);
 }
 
-const TABLE_COLS = 12;
+const TABLE_COLS = 13;
 
 /** Single-line cell; Radix tooltip shows full value on hover (portal, above table overflow). */
 function CellText({ text, className }: { text: string; className?: string }) {
@@ -117,7 +133,7 @@ function CellText({ text, className }: { text: string; className?: string }) {
 
 export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syncingTarget }: Props) {
   const [rows, setRows] = useState<AdminApplicationRow[]>([]);
-  const [jobs, setJobs] = useState<{ id: string; title: string }[]>([]);
+  const [jobs, setJobs] = useState<{ id: string; title: string; job_code: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -200,7 +216,7 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
   useEffect(() => {
     void supabase
       .from("jobs")
-      .select("id, title")
+      .select("id, title, job_code")
       .order("title", { ascending: true })
       .limit(5000)
       .then(({ data }) => setJobs(data ?? []));
@@ -328,6 +344,7 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
         "Current Company": applicationCompany(r) ?? "",
         "Highest Qualification": applicationQualification(r) ?? "",
         Module: r.jobs?.module ?? "",
+        "Job ID": r.jobs?.job_code ?? "",
         "Applied For (Job Title)": r.jobs?.title ?? "",
         "Job Location": r.jobs?.location ?? "",
         Status: statusFromDb(r.status),
@@ -357,20 +374,12 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
 
   return (
     <TooltipProvider delayDuration={200} skipDelayDuration={80}>
-      <div className="space-y-4">
-      {err ? (
-        <p
-          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
-          role="alert"
-          aria-live="assertive"
-        >
-          {err}
-        </p>
-      ) : null}
+      <AdminSection>
+      {err ? <AdminAlert variant="error">{err}</AdminAlert> : null}
 
-      <div className="flex flex-col gap-3 rounded-lg border border-zinc-200/80 bg-zinc-50/30 p-3 dark:border-zinc-800 dark:bg-zinc-950/50 sm:flex-row sm:flex-wrap sm:items-end">
-        <div className="grid w-full gap-2 sm:w-auto sm:min-w-[140px]">
-          <Label className="text-xs">Status</Label>
+      <AdminPanel>
+        <AdminPanelField size="sm">
+          <AdminFilterLabel>Status</AdminFilterLabel>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="justify-between font-normal">
@@ -395,10 +404,10 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
               })}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
+        </AdminPanelField>
 
-        <div className="grid w-full gap-2 sm:w-48">
-          <Label className="text-xs">Job</Label>
+        <AdminPanelField size="md">
+          <AdminFilterLabel>Job</AdminFilterLabel>
           <Select value={jobFilter} onValueChange={setJobFilter}>
             <SelectTrigger>
               <SelectValue placeholder="Job" />
@@ -407,15 +416,15 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
               <SelectItem value="all">All jobs</SelectItem>
               {jobs.map((j) => (
                 <SelectItem key={j.id} value={j.id}>
-                  {j.title}
+                  {j.job_code ? `${j.job_code} · ${j.title}` : j.title}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </AdminPanelField>
 
-        <div className="grid w-full gap-2 sm:w-auto sm:min-w-[140px]">
-          <Label className="text-xs">Module</Label>
+        <AdminPanelField size="sm">
+          <AdminFilterLabel>Module</AdminFilterLabel>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="justify-between font-normal">
@@ -437,51 +446,65 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
+        </AdminPanelField>
 
-        <div className="grid w-full gap-2 sm:w-36">
-          <Label className="text-xs">From</Label>
+        <AdminPanelField size="md">
+          <AdminFilterLabel>From</AdminFilterLabel>
           <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-        </div>
-        <div className="grid w-full gap-2 sm:w-36">
-          <Label className="text-xs">To</Label>
+        </AdminPanelField>
+        <AdminPanelField size="md">
+          <AdminFilterLabel>To</AdminFilterLabel>
           <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-        </div>
+        </AdminPanelField>
 
-        <div className="grid w-full min-w-0 flex-1 gap-2 sm:min-w-[200px]">
-          <Label className="text-xs">Search</Label>
+        <AdminPanelField size="grow">
+          <AdminFilterLabel>Search</AdminFilterLabel>
           <Input
-            placeholder="Name, email, mobile…"
+            placeholder="Name, email, mobile, Job ID…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
-        </div>
+        </AdminPanelField>
 
         <Button
           type="button"
-          variant="default"
-          className="shrink-0 gap-2 bg-zinc-900 px-4 font-semibold text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+          className="po-admin-btn-primary shrink-0 gap-2"
           onClick={() => void load()}
           disabled={loading}
         >
           <RefreshCw className={cn("h-4 w-4 shrink-0", loading && "animate-spin")} aria-hidden />
           {loading ? "Refreshing…" : "Refresh"}
         </Button>
-      </div>
+      </AdminPanel>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <Button type="button" variant="outline" size="sm" onClick={() => setBulkOpen(true)} disabled={selected.size === 0}>
+      <AdminActions>
+        <AdminActionsGroup>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="po-admin-btn-outline"
+            onClick={() => setBulkOpen(true)}
+            disabled={selected.size === 0}
+          >
             Change status ({selected.size})
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={exportCurrentPage} disabled={rows.length === 0}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="po-admin-btn-outline"
+            onClick={exportCurrentPage}
+            disabled={rows.length === 0}
+          >
             Export this page ({rows.length})
           </Button>
-        </div>
+        </AdminActionsGroup>
         <Button
           type="button"
           variant="outline"
           size="sm"
+          className="po-admin-btn-outline"
           onClick={() => onSyncApplications({ applicationIds: rows.map((r) => r.id), page })}
           disabled={syncingTarget !== null || rows.length === 0 || loading}
         >
@@ -489,29 +512,31 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
             ? `Syncing applications (page ${page})…`
             : `Sync applications — page ${page}`}
         </Button>
-      </div>
+      </AdminActions>
 
       {!loading && totalCount > 0 ? (
-        <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">Applications sheet · Page {page}</span> —{" "}
+        <AdminHint>
+          <span className="po-admin-hint__emph">Applications sheet · Page {page}</span> —{" "}
           <span className="tabular-nums">{rows.length}</span> of{" "}
           <span className="tabular-nums">{totalCount}</span> matching rows. Appends to the{" "}
-          <span className="font-medium">Applications</span> tab only; skips rows already present (same Application ID). Use{" "}
-          <span className="font-medium">Talent pool</span> for the other tab.
-        </p>
+          <strong>Applications</strong> tab only; skips rows already present (same Application ID). Each row
+          includes <strong>Job ID</strong> (e.g. PO-2026-0001) — the same code candidates see when they apply.
+          Re-sync a page to backfill Job ID on rows that were added earlier. Use <strong>Talent pool</strong>{" "}
+          for the other tab.
+        </AdminHint>
       ) : null}
 
       <div className="min-w-0 space-y-2">
         {!loading && rows.length > 0 ? (
-          <div className="flex items-center gap-3 rounded-lg border border-zinc-200/80 bg-white px-3 py-2.5 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
+          <AdminSelectBar>
             <Checkbox checked={allVisibleSelected} onCheckedChange={() => toggleAllVisible()} aria-label="Select all on this page" />
-            <span className="text-xs font-medium tracking-tight text-zinc-600 dark:text-zinc-400">
+            <span className="text-xs font-medium text-[var(--po-admin-muted)]">
               Select all on page <span className="tabular-nums">({rows.length})</span>
             </span>
-          </div>
+          </AdminSelectBar>
         ) : null}
 
-        <div className="min-w-0 overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:shadow-none">
+        <AdminTableWrap>
           <Table
             containerClassName="overflow-x-auto overflow-y-visible"
             className="table-fixed border-collapse text-left text-[13px] leading-normal text-zinc-900 dark:text-zinc-100"
@@ -547,7 +572,13 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
                   Mobile
                 </TableHead>
                 <TableHead
-                  className="w-[15%] min-w-0 px-2 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400"
+                  className="w-[8%] min-w-0 px-2 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400"
+                  scope="col"
+                >
+                  Job ID
+                </TableHead>
+                <TableHead
+                  className="w-[13%] min-w-0 px-2 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400"
                   scope="col"
                 >
                   Applied For
@@ -593,13 +624,13 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
             <TableBody>
               {loading ? (
                 <TableRow className="border-0 hover:bg-transparent">
-                  <TableCell colSpan={TABLE_COLS} className="py-14 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                  <TableCell colSpan={TABLE_COLS} className="po-admin-table-empty">
                     Loading applications…
                   </TableCell>
                 </TableRow>
               ) : totalCount === 0 ? (
                 <TableRow className="border-0 hover:bg-transparent">
-                  <TableCell colSpan={TABLE_COLS} className="py-14 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                  <TableCell colSpan={TABLE_COLS} className="po-admin-table-empty">
                     No applications match these filters.
                   </TableCell>
                 </TableRow>
@@ -627,7 +658,7 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
                         <button
                           type="button"
                           onClick={() => setExpandedCandidate(r)}
-                          className="block min-w-0 max-w-full cursor-pointer truncate text-left underline decoration-dotted underline-offset-2 outline-none ring-offset-2 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-zinc-400 dark:ring-offset-zinc-950 dark:hover:text-zinc-200 dark:focus-visible:ring-zinc-500"
+                          className="po-admin-candidate-link block min-w-0 max-w-full truncate text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--po-admin-highlight)] focus-visible:ring-offset-2"
                           title={`View details for ${r.full_name}`}
                           aria-label={`Open candidate details for ${r.full_name}`}
                         >
@@ -639,6 +670,9 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
                       </TableCell>
                       <TableCell className="max-w-0 align-top tabular-nums text-zinc-700 dark:text-zinc-300">
                         <CellText text={r.mobile} />
+                      </TableCell>
+                      <TableCell className="max-w-0 align-top font-mono text-xs font-semibold text-[var(--po-admin-brand,#1a3d2e)] dark:text-emerald-200/90">
+                        <CellText text={r.jobs?.job_code ?? "—"} />
                       </TableCell>
                       <TableCell className="max-w-0 align-top font-medium text-zinc-800 dark:text-zinc-200">
                         <CellText text={r.jobs?.title ?? "—"} />
@@ -679,7 +713,7 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
                               <Button
                                 type="button"
                                 size="sm"
-                                className="h-9 w-full gap-1.5 border-0 bg-violet-600 px-2 text-xs font-semibold text-white shadow-md transition-[background,box-shadow] hover:bg-violet-700 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 dark:bg-violet-600 dark:hover:bg-violet-500 dark:focus-visible:ring-violet-200 dark:focus-visible:ring-offset-zinc-950"
+                                className="po-admin-btn-resume h-9 w-full gap-1.5 px-2 text-xs"
                                 asChild
                               >
                                 <a href={resumeUrl} target="_blank" rel="noreferrer">
@@ -702,63 +736,72 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
               )}
             </TableBody>
           </Table>
-        </div>
+        </AdminTableWrap>
 
         {!loading && totalCount > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200/80 pt-4 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
-            <span className="tabular-nums">
-              {totalCount.toLocaleString()} total · Page {page} of {totalPages}
-            </span>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <AdminPagination
+            label={
+              <span className="tabular-nums">
+                {totalCount.toLocaleString()} total · Page {page} of {totalPages}
+              </span>
+            }
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="po-admin-btn-outline"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="po-admin-btn-outline"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </AdminPagination>
         ) : null}
       </div>
 
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Bulk update status</DialogTitle>
-            <DialogDescription>Set status for {selected.size} selected application(s).</DialogDescription>
+        <DialogContent className={adminDialogClass}>
+          <DialogHeader className="po-admin-dialog__header">
+            <DialogTitle className="po-admin-dialog__title">Bulk update status</DialogTitle>
+            <DialogDescription className="po-admin-dialog__description">
+              Set status for {selected.size} selected application(s).
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-2 py-2">
-            <Label htmlFor="bulk-app-status">New status</Label>
-            <Select value={bulkStatus} onValueChange={setBulkStatus}>
-              <SelectTrigger id="bulk-app-status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {APPLICATION_STATUS_LABELS.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="po-admin-dialog__body po-admin-dialog__body--form">
+            <div className="po-admin-form__field">
+              <Label className="po-admin-form__label" htmlFor="bulk-app-status">
+                New status
+              </Label>
+              <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                <SelectTrigger id="bulk-app-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {APPLICATION_STATUS_LABELS.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setBulkOpen(false)}>
+          <DialogFooter className="po-admin-dialog__footer">
+            <Button type="button" variant="outline" className="po-admin-btn-outline" onClick={() => setBulkOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" onClick={() => void runBulkStatus()} disabled={bulkBusy}>
+            <Button type="button" className="po-admin-btn-primary" onClick={() => void runBulkStatus()} disabled={bulkBusy}>
               {bulkBusy ? "Saving…" : "Apply"}
             </Button>
           </DialogFooter>
@@ -766,96 +809,69 @@ export function ApplicationsTab({ supabase, onStatsBump, onSyncApplications, syn
       </Dialog>
 
       <Dialog open={Boolean(expandedCandidate)} onOpenChange={(open) => (!open ? setExpandedCandidate(null) : null)}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>{expandedCandidate?.full_name ?? "Candidate details"}</DialogTitle>
-            <DialogDescription>Expanded application context for quick admin review.</DialogDescription>
+        <DialogContent className={cn(adminDialogClass, "sm:max-w-xl")}>
+          <DialogHeader className="po-admin-dialog__header">
+            <DialogTitle className="po-admin-dialog__title">
+              {expandedCandidate?.full_name ?? "Candidate details"}
+            </DialogTitle>
+            <DialogDescription className="po-admin-dialog__description">
+              Application summary for quick review.
+            </DialogDescription>
           </DialogHeader>
           {expandedCandidate ? (
-            <div className="grid gap-3 py-1 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Email</p>
-                  <p className="break-all font-medium">{expandedCandidate.email}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Mobile</p>
-                  <p className="font-medium">{expandedCandidate.mobile}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Applied For</p>
-                  <p className="font-medium">{expandedCandidate.jobs?.title ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Module</p>
-                  <p className="font-medium">{expandedCandidate.jobs?.module ?? "—"}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Current Designation</p>
-                  <p className="font-medium">{applicationDesignation(expandedCandidate) ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Current Dept</p>
-                  <p className="font-medium">{applicationDepartment(expandedCandidate) ?? "—"}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Current Company</p>
-                  <p className="font-medium">{applicationCompany(expandedCandidate) ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Highest Qualification</p>
-                  <p className="font-medium">{applicationQualification(expandedCandidate) ?? "—"}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Date Applied</p>
-                  <p className="font-medium">{formatAppliedAt(expandedCandidate.created_at)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Status</p>
-                  <p className="font-medium">{statusFromDb(expandedCandidate.status)}</p>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Status last changed</p>
-                <p className="font-medium">
+            <div className="po-admin-dialog__body">
+              <AdminDetailGrid>
+                <AdminDetailItem label="Email">{expandedCandidate.email}</AdminDetailItem>
+                <AdminDetailItem label="Mobile">{expandedCandidate.mobile}</AdminDetailItem>
+                <AdminDetailItem label="Job ID">
+                  <span className="po-admin-detail-item__value--mono">
+                    {expandedCandidate.jobs?.job_code ?? "—"}
+                  </span>
+                </AdminDetailItem>
+                <AdminDetailItem label="Applied for">{expandedCandidate.jobs?.title ?? "—"}</AdminDetailItem>
+                <AdminDetailItem label="Module">{expandedCandidate.jobs?.module ?? "—"}</AdminDetailItem>
+                <AdminDetailItem label="Current designation">
+                  {applicationDesignation(expandedCandidate) ?? "—"}
+                </AdminDetailItem>
+                <AdminDetailItem label="Department">
+                  {applicationDepartment(expandedCandidate) ?? "—"}
+                </AdminDetailItem>
+                <AdminDetailItem label="Company">{applicationCompany(expandedCandidate) ?? "—"}</AdminDetailItem>
+                <AdminDetailItem label="Qualification">
+                  {applicationQualification(expandedCandidate) ?? "—"}
+                </AdminDetailItem>
+                <AdminDetailItem label="Date applied">{formatAppliedAt(expandedCandidate.created_at)}</AdminDetailItem>
+                <AdminDetailItem label="Status">{statusFromDb(expandedCandidate.status)}</AdminDetailItem>
+                <AdminDetailItem label="Status last changed" className="po-admin-detail-item--full">
                   {expandedCandidate.status_changed_at
                     ? formatAppliedAt(expandedCandidate.status_changed_at)
                     : "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Resume</p>
-                {applicationResumeUrl(expandedCandidate) ? (
-                  <a
-                    href={applicationResumeUrl(expandedCandidate)!}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-violet-600 underline underline-offset-2 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
-                  >
-                    Open resume
-                  </a>
-                ) : (
-                  <p className="font-medium">—</p>
-                )}
-              </div>
+                </AdminDetailItem>
+                <AdminDetailItem label="Resume" className="po-admin-detail-item--full">
+                  {applicationResumeUrl(expandedCandidate) ? (
+                    <a
+                      href={applicationResumeUrl(expandedCandidate)!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="po-admin-link"
+                    >
+                      Open resume
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </AdminDetailItem>
+              </AdminDetailGrid>
             </div>
           ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setExpandedCandidate(null)}>
+          <DialogFooter className="po-admin-dialog__footer">
+            <Button type="button" variant="outline" className="po-admin-btn-outline" onClick={() => setExpandedCandidate(null)}>
               Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>
+      </AdminSection>
     </TooltipProvider>
   );
 }

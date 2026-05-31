@@ -20,6 +20,8 @@ import {
   readRegisterStep2Draft,
   writeRegisterStep2Draft,
 } from "@/src/lib/registerDraft";
+import { AuthAlert, AuthButton, AuthField, AuthInput, AuthSelect } from "@/app/components/auth/AuthUi";
+import { AuthPageShell } from "@/app/components/site/AuthPageShell";
 import { OtpBoxes, OTP_DIGIT_COUNT } from "@/components/OtpBoxes";
 import { invokeSupabaseFunction } from "@/src/lib/edgeFunctions";
 import { createSupabaseClient } from "@/src/lib/supabase";
@@ -539,145 +541,121 @@ export default function RegisterPage() {
   ]);
 
   return (
-    <main className="relative flex flex-1 flex-col px-4 pb-20 pt-24 sm:px-6 lg:pt-28">
-      <div className="mx-auto w-full max-w-xl flex-1">
-        <div className="rounded-[1.75rem] border border-[var(--color-po-lavender-deep)] bg-white/90 p-6 shadow-[0_12px_48px_rgba(30,27,54,0.06)] sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-po-muted)]">
-            Candidate registration
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--color-po-navy)]">
-            {step === 1 ? "Verify your mobile" : "Complete your profile"}
-          </h1>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--color-po-muted)]">
-            {step === 1
-              ? "We’ll send a one-time code by SMS to confirm your number. Enter it below when it arrives."
-              : "Tell us a bit about your background so we can match you to the right roles. When you’re done, we’ll take you to job listings."}
-          </p>
+    <AuthPageShell
+      authMode="register"
+      cardSize={step === 2 ? "wide" : "default"}
+      title="Create your profile"
+      step={step}
+      totalSteps={2}
+      subtitle={
+        step === 1
+          ? "We’ll text a one-time code to confirm your mobile number."
+          : "Share your background so we can match you to the right pharma roles."
+      }
+    >
+      {fromEmptyState ? (
+        <AuthAlert variant="info">
+          Don&apos;t see a matching role right now? Register and we&apos;ll reach out when the right opportunity
+          appears.
+        </AuthAlert>
+      ) : null}
 
-          {fromEmptyState ? (
-            <div className="mt-4 rounded-2xl border border-[var(--color-po-gold)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]">
-              Don&apos;t see a matching role right now? Register your profile and we&apos;ll reach out when the right opportunity comes.
-            </div>
-          ) : null}
+      {restoredDraftBanner ? (
+        <AuthAlert variant="success">
+          <span className="po-auth-alert__row">
+            <span>
+              <strong>Welcome back.</strong> We restored your saved details so you can finish registering.
+            </span>
+            <button type="button" onClick={() => setRestoredDraftBanner(false)} className="po-auth-alert__dismiss">
+              Dismiss
+            </button>
+          </span>
+        </AuthAlert>
+      ) : null}
 
-          {restoredDraftBanner ? (
-            <div className="mt-4 flex items-start justify-between gap-3 rounded-2xl border border-[var(--color-po-teal)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]">
-              <p className="min-w-0 leading-relaxed">
-                <span className="font-semibold">Welcome back.</span> We restored your saved details from last time so you
-                can finish registering.
+      {error ? <AuthAlert variant="error">{error}</AuthAlert> : null}
+
+      {alreadyRegistered ? (
+        <div className="po-auth-panel">
+          <p className="po-auth-panel__title">Already registered</p>
+          <p className="po-auth-panel__text">This number already has a profile.</p>
+          <Link href="/login" className="po-auth-btn po-auth-btn--primary po-auth-btn--link">
+            Go to sign in
+          </Link>
+        </div>
+      ) : null}
+
+      {!alreadyRegistered && step === 1 ? (
+        <div className="po-auth-stack">
+          <AuthField label="Mobile number" htmlFor="register-mobile" required>
+            <AuthInput
+              id="register-mobile"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value)}
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="e.g. +91 98765 43210"
+            />
+          </AuthField>
+
+          <div className="po-auth-actions po-auth-actions--split">
+            {!otpSentOnce ? (
+              <AuthButton
+                variant="primary"
+                disabled={!canSendOtp || busy || resendIn > 0}
+                onClick={sendOtp}
+                className="po-auth-btn--grow"
+              >
+                {busy ? "Sending…" : resendIn > 0 ? `Retry in ${resendIn}s` : "Send OTP"}
+              </AuthButton>
+            ) : (
+              <AuthButton
+                variant="secondary"
+                disabled={busy || resendIn > 0}
+                onClick={sendOtp}
+                className="po-auth-btn--grow"
+              >
+                {resendIn > 0 ? `Resend OTP (${resendIn}s)` : "Resend OTP"}
+              </AuthButton>
+            )}
+          </div>
+
+          {otpSentOnce ? (
+            <div className="po-auth-otp-block">
+              <p id="register-otp-heading" className="po-auth-otp-label">
+                Enter the {OTP_DIGIT_COUNT}-digit code
               </p>
-              <button
-                type="button"
-                onClick={() => setRestoredDraftBanner(false)}
-                className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full px-2 py-1 text-xs font-semibold text-[var(--color-po-muted)] hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
-              >
-                Dismiss
-              </button>
+              <p className="po-auth-otp-hint">Sent to {normalizeMobile(mobile)}</p>
+              <OtpBoxes value={otp} onChange={setOtp} disabled={busy} labelledBy="register-otp-heading" />
+              <AuthButton variant="accent" disabled={!canVerify} onClick={verifyOtp} className="po-auth-btn--block">
+                {busy ? "Verifying…" : "Verify & continue"}
+              </AuthButton>
             </div>
           ) : null}
+        </div>
+      ) : null}
 
-          {error ? (
-            <p
-              className="mt-4 rounded-2xl border border-[var(--color-po-coral)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]"
-              role="alert"
-              aria-live="assertive"
-            >
-              {error}
-            </p>
-          ) : null}
-
-          {alreadyRegistered ? (
-            <div className="mt-6 rounded-2xl border border-[var(--color-po-gold)]/40 bg-[var(--color-po-lavender)] px-4 py-4 text-sm text-[var(--color-po-navy)]">
-              <p className="font-semibold">Already registered.</p>
-              <p className="mt-1 text-[var(--color-po-muted)]">Login instead?</p>
-              <Link
-                href="/login"
-                className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
-              >
-                Go to login
-              </Link>
-            </div>
-          ) : null}
-
-          {!alreadyRegistered && step === 1 ? (
-            <div className="mt-8 space-y-4">
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]" htmlFor="register-mobile">
-                Mobile number
-                <input
-                  id="register-mobile"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                  inputMode="tel"
-                  autoComplete="tel"
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
-                  placeholder="+91 98765 43210"
-                />
-              </label>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                {!otpSentOnce ? (
-                  <button
-                    type="button"
-                    disabled={!canSendOtp || busy || resendIn > 0}
-                    onClick={sendOtp}
-                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {busy ? "Sending…" : resendIn > 0 ? `Retry in ${resendIn}s` : "Send OTP"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy || resendIn > 0}
-                    onClick={sendOtp}
-                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-6 py-3 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/35 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {resendIn > 0 ? `Resend OTP (${resendIn}s)` : "Resend OTP"}
-                  </button>
-                )}
-              </div>
-
-              {otpSentOnce ? (
-                <div>
-                  <p id="register-otp-heading" className="text-sm font-semibold text-[var(--color-po-navy)]">
-                    Enter OTP
-                  </p>
-                  <OtpBoxes value={otp} onChange={setOtp} disabled={busy} labelledBy="register-otp-heading" />
-                </div>
-              ) : null}
-
-              {otpSentOnce ? (
-                <button
-                  type="button"
-                  disabled={!canVerify}
-                  onClick={verifyOtp}
-                  className="min-h-11 w-full rounded-full bg-[var(--color-po-teal)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {busy ? "Verifying…" : "Verify & continue"}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-          {!alreadyRegistered && step === 2 ? (
+      {!alreadyRegistered && step === 2 ? (
             <form
-              className="mt-8 space-y-4"
+              className="po-auth-stack"
               onSubmit={(e) => {
                 e.preventDefault();
                 void submitProfile();
               }}
             >
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
+              <label className="po-auth-label-block">
                 Full name
                 <input
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   maxLength={100}
                   required
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                  className="po-auth-input"
+                  placeholder="e.g. Priya Sharma"
                 />
               </label>
 
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
+              <label className="po-auth-label-block">
                 Email
                 <input
                   value={email}
@@ -686,29 +664,25 @@ export default function RegisterPage() {
                   inputMode="email"
                   autoComplete="email"
                   required
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                  className="po-auth-input"
+                  placeholder="e.g. you@company.com"
                 />
               </label>
 
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
+              <label className="po-auth-label-block">
                 Mobile
                 <input
                   value={normalizeMobile(mobile)}
                   readOnly
                   tabIndex={-1}
                   aria-readonly="true"
-                  className="mt-2 w-full cursor-not-allowed rounded-2xl border border-[var(--color-po-lavender-deep)] bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-muted)]"
+                  className="po-auth-input po-auth-input--readonly"
                 />
               </label>
 
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                Department <span className="text-[var(--color-po-coral)]">*</span>
-                <select
-                  value={department}
-                  onChange={(e) => onDepartmentChange(e.target.value)}
-                  required
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
-                >
+              <label className="po-auth-label-block">
+                Department <span className="po-auth-required">*</span>
+                <AuthSelect value={department} onChange={(e) => onDepartmentChange(e.target.value)} required>
                   <option value="">Select department</option>
                   {DEPARTMENT_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -716,29 +690,29 @@ export default function RegisterPage() {
                     </option>
                   ))}
                   <option value={OTHER_OPTION}>{OTHER_OPTION}</option>
-                </select>
+                </AuthSelect>
               </label>
               {department === OTHER_OPTION ? (
-                <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                  Enter department <span className="text-[var(--color-po-coral)]">*</span>
+                <label className="po-auth-label-block">
+                  Enter department <span className="po-auth-required">*</span>
                   <input
                     value={departmentCustom}
                     onChange={(e) => setDepartmentCustom(e.target.value)}
                     required
                     maxLength={120}
-                    className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                    className="po-auth-input"
+                    placeholder="e.g. Quality Assurance"
                   />
                 </label>
               ) : null}
 
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                Sub-department <span className="text-[var(--color-po-coral)]">*</span>
-                <select
+              <label className="po-auth-label-block">
+                Sub-department <span className="po-auth-required">*</span>
+                <AuthSelect
                   value={subDepartment}
                   onChange={(e) => onSubDepartmentChange(e.target.value)}
                   required
                   disabled={!department}
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4 disabled:cursor-not-allowed disabled:bg-[var(--color-po-lavender)]"
                 >
                   <option value="">
                     {department ? "Select sub-department" : "Select department first"}
@@ -751,29 +725,29 @@ export default function RegisterPage() {
                   {!subDepartmentOptions.includes(OTHER_OPTION) ? (
                     <option value={OTHER_OPTION}>{OTHER_OPTION}</option>
                   ) : null}
-                </select>
+                </AuthSelect>
               </label>
               {subDepartment === OTHER_OPTION ? (
-                <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                  Enter sub-department <span className="text-[var(--color-po-coral)]">*</span>
+                <label className="po-auth-label-block">
+                  Enter sub-department <span className="po-auth-required">*</span>
                   <input
                     value={subDepartmentCustom}
                     onChange={(e) => setSubDepartmentCustom(e.target.value)}
                     required
                     maxLength={120}
-                    className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                    className="po-auth-input"
+                    placeholder="e.g. Analytical QC"
                   />
                 </label>
               ) : null}
 
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                Current designation <span className="text-[var(--color-po-coral)]">*</span>
-                <select
+              <label className="po-auth-label-block">
+                Current designation <span className="po-auth-required">*</span>
+                <AuthSelect
                   value={designation}
                   onChange={(e) => onDesignationChange(e.target.value)}
                   required
                   disabled={!department}
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4 disabled:cursor-not-allowed disabled:bg-[var(--color-po-lavender)]"
                 >
                   <option value="">
                     {department ? "Select designation" : "Select department first"}
@@ -786,92 +760,88 @@ export default function RegisterPage() {
                   {!designationOptions.includes(OTHER_OPTION) ? (
                     <option value={OTHER_OPTION}>{OTHER_OPTION}</option>
                   ) : null}
-                </select>
+                </AuthSelect>
               </label>
               {designation === OTHER_OPTION ? (
-                <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                  Enter designation <span className="text-[var(--color-po-coral)]">*</span>
+                <label className="po-auth-label-block">
+                  Enter designation <span className="po-auth-required">*</span>
                   <input
                     value={designationCustom}
                     onChange={(e) => setDesignationCustom(e.target.value)}
                     required
                     maxLength={120}
-                    className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                    className="po-auth-input"
+                    placeholder="e.g. Senior Analyst"
                   />
                 </label>
               ) : null}
 
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                Current company <span className="text-[var(--color-po-coral)]">*</span>
+              <label className="po-auth-label-block">
+                Current company <span className="po-auth-required">*</span>
                 <input
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
                   required
                   maxLength={120}
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                  className="po-auth-input"
                   placeholder="e.g. ABC Pharma Pvt Ltd"
                 />
               </label>
 
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                Preferred location <span className="text-[var(--color-po-coral)]">*</span>
+              <label className="po-auth-label-block">
+                Preferred location <span className="po-auth-required">*</span>
                 <input
                   value={preferredLocation}
                   onChange={(e) => setPreferredLocation(e.target.value)}
                   required
                   maxLength={120}
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                  className="po-auth-input"
                   placeholder="e.g. Hyderabad, Remote, Bengaluru"
                 />
               </label>
 
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                Notice period <span className="text-[var(--color-po-coral)]">*</span>
+              <label className="po-auth-label-block">
+                Notice period <span className="po-auth-required">*</span>
                 <input
                   value={noticePeriod}
                   onChange={(e) => setNoticePeriod(e.target.value)}
                   required
                   maxLength={120}
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                  className="po-auth-input"
                   placeholder="e.g. Immediate, 15 days, 30 days, 2 months"
                 />
               </label>
 
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                Highest qualification <span className="text-[var(--color-po-coral)]">*</span>
-                <select
-                  value={qualification}
-                  onChange={(e) => onQualificationChange(e.target.value)}
-                  required
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
-                >
+              <label className="po-auth-label-block">
+                Highest qualification <span className="po-auth-required">*</span>
+                <AuthSelect value={qualification} onChange={(e) => onQualificationChange(e.target.value)} required>
                   {QUALIFICATIONS.map((q) => (
                     <option key={q} value={q}>
                       {q}
                     </option>
                   ))}
-                </select>
+                </AuthSelect>
               </label>
               {qualification === "Other" ? (
-                <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-                  Specify qualification <span className="text-[var(--color-po-coral)]">*</span>
+                <label className="po-auth-label-block">
+                  Specify qualification <span className="po-auth-required">*</span>
                   <input
                     value={qualificationCustom}
                     onChange={(e) => setQualificationCustom(e.target.value)}
                     required
                     maxLength={120}
-                    className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                    className="po-auth-input"
                     placeholder="Enter your qualification"
                   />
                 </label>
               ) : null}
 
-              <div>
-                <p className="text-sm font-semibold text-[var(--color-po-navy)]">
-                  Preferred modules <span className="text-[var(--color-po-coral)]">*</span>
+              <div className="po-auth-field">
+                <p className="po-auth-label">
+                  Preferred modules <span className="po-auth-required">*</span>
                 </p>
-                <p className="mt-1 text-xs text-[var(--color-po-muted)]">Select all that apply.</p>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <p className="po-auth-field-hint">Select all that apply.</p>
+                <div className="po-auth-chip-group">
                   {MODULES.map((m) => {
                     const active = preferred.includes(m);
                     return (
@@ -880,11 +850,7 @@ export default function RegisterPage() {
                         type="button"
                         aria-pressed={active}
                         onClick={() => toggleModule(m)}
-                        className={`min-h-11 rounded-full border px-4 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet ${
-                          active
-                            ? "border-[var(--color-po-violet)] bg-[var(--color-po-lavender)] text-[var(--color-po-navy)]"
-                            : "border-[var(--color-po-lavender-deep)] bg-white text-[var(--color-po-muted)] hover:border-[var(--color-po-violet)]/35"
-                        }`}
+                        className={`po-auth-chip${active ? " po-auth-chip--active" : ""}`}
                       >
                         {m}
                       </button>
@@ -892,24 +858,24 @@ export default function RegisterPage() {
                   })}
                 </div>
                 {preferred.includes("Others") ? (
-                  <label className="mt-3 block text-sm font-semibold text-[var(--color-po-navy)]">
-                    Describe preferred modules (Others) <span className="text-[var(--color-po-coral)]">*</span>
+                  <label className="po-auth-label-block po-auth-label-block--spaced">
+                    Describe preferred modules (Others) <span className="po-auth-required">*</span>
                     <input
                       value={preferredModulesOthersNote}
                       onChange={(e) => setPreferredModulesOthersNote(e.target.value)}
                       required
                       maxLength={200}
-                      className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+                      className="po-auth-input"
                       placeholder="e.g. Formulation R&D, Clinical supplies"
                     />
                   </label>
                 ) : null}
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-[var(--color-po-navy)]" htmlFor="register-resume">
-                  Resume <span className="text-[var(--color-po-coral)]">*</span>{" "}
-                  <span className="font-medium text-[var(--color-po-muted)]">(PDF/DOC, max 5MB)</span>
+              <div className="po-auth-field">
+                <label className="po-auth-label-block" htmlFor="register-resume">
+                  Resume <span className="po-auth-required">*</span>{" "}
+                  <span className="po-auth-label-hint">(PDF/DOC, max 5MB)</span>
                   <input
                     id="register-resume"
                     ref={resumeInputRef}
@@ -917,37 +883,21 @@ export default function RegisterPage() {
                     required
                     accept={RESUME_ACCEPT_ATTR}
                     onChange={(e) => onResumeSelected(e.target.files?.[0] ?? null)}
-                    className="mt-2 block w-full text-sm text-[var(--color-po-muted)] file:mr-4 file:min-h-11 file:rounded-full file:border-0 file:bg-[var(--color-po-lavender)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--color-po-navy)]"
+                    className="po-auth-file"
                   />
                 </label>
                 {resumeHint ? (
-                  <p className="mt-2 text-sm text-[var(--color-po-coral)]" role="alert" aria-live="polite">
+                  <p className="po-auth-field-error" role="alert" aria-live="polite">
                     {resumeHint}
                   </p>
                 ) : null}
               </div>
 
-              <button
-                type="submit"
-                disabled={busy}
-                className="min-h-11 w-full rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
+              <button type="submit" disabled={busy} className="po-auth-btn po-auth-btn--primary po-auth-btn--block">
                 {busy ? "Saving…" : "Create profile"}
               </button>
             </form>
           ) : null}
-
-          <p className="mt-8 text-center text-sm text-[var(--color-po-muted)]">
-            Already have an account?{" "}
-            <Link
-              className="font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
-              href="/login"
-            >
-              Login
-            </Link>
-          </p>
-        </div>
-      </div>
-    </main>
+    </AuthPageShell>
   );
 }

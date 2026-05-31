@@ -4,11 +4,18 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 
+import {
+  AdminAlert,
+  AdminFormField,
+  AdminLoading,
+  AdminLoginCard,
+  AdminLoginHeader,
+  AdminLoginShell,
+} from "@/app/admin/components/AdminUi";
 import { clearAdminReturn, resolveAdminReturn } from "@/app/admin/lib/authGate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { createSupabaseBrowserClient } from "@/src/lib/supabase";
+import { clearInvalidAdminSession, createSupabaseBrowserClient } from "@/src/lib/supabase";
 
 function AdminLoginContent() {
   const router = useRouter();
@@ -23,6 +30,7 @@ function AdminLoginContent() {
     if (!supabase) return;
     let cancelled = false;
     void (async () => {
+      await clearInvalidAdminSession(supabase);
       const { data } = await supabase.auth.getSession();
       if (!cancelled && data.session) {
         const nextPath = resolveAdminReturn(searchParams.get("next"));
@@ -62,50 +70,48 @@ function AdminLoginContent() {
   );
 
   return (
-    <main className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-md flex-col justify-center px-4 py-10 sm:min-h-[70vh]">
-      <div className="rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white p-6 shadow-md shadow-[var(--color-po-navy)]/5">
-        <h1 className="text-xl font-semibold text-[var(--color-po-navy)]">Admin sign in</h1>
-        <p className="mt-1 text-sm text-[var(--color-po-muted)]">Use your Supabase Auth admin account.</p>
+    <AdminLoginShell>
+      <AdminLoginCard>
+        <AdminLoginHeader title="Admin sign in" lead="Sign in with your admin account to manage jobs and applications." />
 
-        <form className="mt-6 space-y-4" onSubmit={(ev) => void submit(ev)}>
-          <div className="space-y-2">
-            <Label htmlFor="admin-email">Email</Label>
+        <form className="po-admin-form" onSubmit={(ev) => void submit(ev)}>
+          <AdminFormField label="Email" htmlFor="admin-email">
             <Input
               id="admin-email"
+              className="po-admin-control"
               type="email"
               autoComplete="email"
+              placeholder="you@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="admin-password">Password</Label>
+          </AdminFormField>
+          <AdminFormField label="Password" htmlFor="admin-password">
             <Input
               id="admin-password"
+              className="po-admin-control"
               type="password"
               autoComplete="current-password"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-          </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          <Button type="submit" className="w-full" disabled={busy}>
+          </AdminFormField>
+          {error ? <AdminAlert variant="error">{error}</AdminAlert> : null}
+          <Button type="submit" className="po-admin-btn-primary po-admin-form__submit w-full" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-[var(--color-po-muted)]">
-          <Link
-            href="/"
-            className="font-medium text-[var(--color-po-violet)] underline-offset-4 hover:underline"
-          >
+        <p className="po-admin-login__footer">
+          <Link href="/" className="po-admin-link">
             Back to site
           </Link>
         </p>
-      </div>
-    </main>
+      </AdminLoginCard>
+    </AdminLoginShell>
   );
 }
 
@@ -113,9 +119,9 @@ export default function AdminLoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-md flex-col justify-center px-4 py-10 sm:min-h-[70vh]">
-          <p className="text-center text-sm text-zinc-500">Loading…</p>
-        </main>
+        <AdminLoginShell>
+          <AdminLoading message="Loading…" />
+        </AdminLoginShell>
       }
     >
       <AdminLoginContent />

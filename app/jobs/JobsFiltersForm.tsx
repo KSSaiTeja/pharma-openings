@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { JobsFilterOptions, JobsFilterState } from "@/src/lib/jobFilters";
 
@@ -21,28 +21,28 @@ function FilterCheckboxGroup({
 }) {
   if (options.length === 0) return null;
   return (
-    <fieldset className="space-y-2">
-      <legend className="text-xs font-semibold uppercase tracking-[0.12em] text-[#6b6880]">
-        {legend}
-      </legend>
-      <div className="space-y-2">
+    <fieldset className="po-jobs-filter__group">
+      <legend className="po-jobs-filter__legend">{legend}</legend>
+      <ul className="po-jobs-filter__options">
         {options.map((option) => {
           const id = `${idPrefix}-${name}-${option.replace(/\s+/g, "-").toLowerCase()}`;
           return (
-            <label key={option} htmlFor={id} className="flex min-h-11 cursor-pointer items-center gap-2 py-0.5 text-sm text-[#1e1b36]">
-              <input
-                id={id}
-                type="checkbox"
-                name={name}
-                value={option}
-                defaultChecked={selected.includes(option)}
-                className="h-4 w-4 shrink-0 rounded border-[#d9d4ec] text-[#6d6ae8] focus-visible:ring-2 focus-visible:ring-[#6d6ae8]/40"
-              />
-              <span>{option}</span>
-            </label>
+            <li key={option}>
+              <label htmlFor={id} className="po-jobs-filter__option">
+                <input
+                  id={id}
+                  type="checkbox"
+                  name={name}
+                  value={option}
+                  defaultChecked={selected.includes(option)}
+                  className="po-jobs-filter__checkbox"
+                />
+                <span>{option}</span>
+              </label>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </fieldset>
   );
 }
@@ -88,6 +88,8 @@ export function JobsFiltersForm({
   const pathname = usePathname();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceMs = useMemo(() => 400, []);
+  const [postedPreset, setPostedPreset] = useState(state.posted);
+  const showCustomDates = postedPreset === "custom" || Boolean(state.dateFrom || state.dateTo);
 
   const applyFromForm = useCallback(
     (form: HTMLFormElement) => {
@@ -102,6 +104,13 @@ export function JobsFiltersForm({
       const form = event.currentTarget;
       const target = event.target as HTMLInputElement | HTMLSelectElement;
       const isQuickSearch = target?.name === "q";
+
+      if (target?.name === "posted" && target instanceof HTMLInputElement) {
+        const next = target.value;
+        if (next === "7d" || next === "30d" || next === "all" || next === "custom") {
+          setPostedPreset(next);
+        }
+      }
 
       if (timerRef.current) {
         clearTimeout(timerRef.current);
@@ -119,19 +128,19 @@ export function JobsFiltersForm({
   );
 
   return (
-    <form method="get" className="space-y-5" onChange={handleFormChange}>
-      <div className="space-y-2">
-        <label htmlFor={`${idPrefix}-q`} className="text-xs font-medium tracking-wide text-[#6b6880]">
-          Quick search
+    <form method="get" className="po-jobs-filter__form" onChange={handleFormChange}>
+      <div className="po-jobs-filter__field">
+        <label htmlFor={`${idPrefix}-q`} className="po-jobs-filter__label">
+          Search
         </label>
         <input
           id={`${idPrefix}-q`}
           name="q"
           type="search"
           defaultValue={state.q}
-          placeholder="Title, location, department, module"
+          placeholder="Role, location, department…"
           autoComplete="off"
-              className="h-11 min-h-11 w-full rounded-xl border border-[#ebe7f4] bg-[#faf8ff] px-3 text-sm text-[#1e1b36] outline-none transition-[box-shadow,border-color] placeholder:text-[#6b6880]/70 focus:border-[#6d6ae8]/45 focus:ring-4 focus:ring-[#6d6ae8]/12"
+          className="po-jobs-filter__input"
         />
       </div>
 
@@ -171,68 +180,67 @@ export function JobsFiltersForm({
         idPrefix={idPrefix}
       />
 
-      <fieldset className="space-y-2">
-        <legend className="text-xs font-semibold uppercase tracking-[0.12em] text-[#6b6880]">
-          Posted date
-        </legend>
-        <div className="space-y-2 text-sm text-[#1e1b36]">
+      <fieldset className="po-jobs-filter__group">
+        <legend className="po-jobs-filter__legend">Posted date</legend>
+        <ul className="po-jobs-filter__options">
           {[
             { value: "7d", label: "Last 7 days" },
             { value: "30d", label: "Last 30 days" },
-            { value: "all", label: "All" },
+            { value: "all", label: "All time" },
             { value: "custom", label: "Custom range" },
           ].map((preset) => {
             const rid = `${idPrefix}-posted-${preset.value}`;
             return (
-              <label key={preset.value} htmlFor={rid} className="flex min-h-11 cursor-pointer items-center gap-2 py-1">
-                <input
-                  id={rid}
-                  type="radio"
-                  name="posted"
-                  value={preset.value}
-                  defaultChecked={state.posted === preset.value}
-                  className="h-4 w-4 shrink-0 border-[#d9d4ec] text-[#6d6ae8] focus-visible:ring-2 focus-visible:ring-[#6d6ae8]/40"
-                />
-                <span>{preset.label}</span>
-              </label>
+              <li key={preset.value}>
+                <label htmlFor={rid} className="po-jobs-filter__option">
+                  <input
+                    id={rid}
+                    type="radio"
+                    name="posted"
+                    value={preset.value}
+                    defaultChecked={state.posted === preset.value}
+                    className="po-jobs-filter__radio"
+                  />
+                  <span>{preset.label}</span>
+                </label>
+              </li>
             );
           })}
-        </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div className="space-y-1">
-            <label htmlFor={`${idPrefix}-dateFrom`} className="text-xs text-[#6b6880]">
-              From
-            </label>
-            <input
-              id={`${idPrefix}-dateFrom`}
-              type="date"
-              name="dateFrom"
-              defaultValue={state.dateFrom}
-              className="h-11 min-h-11 w-full rounded-xl border border-[#ebe7f4] bg-[#faf8ff] px-3 text-sm text-[#1e1b36] outline-none focus:border-[#6d6ae8]/45 focus:ring-4 focus:ring-[#6d6ae8]/12"
-            />
+        </ul>
+        {showCustomDates ? (
+          <div className="po-jobs-filter__dates">
+            <div className="po-jobs-filter__date-block">
+              <label htmlFor={`${idPrefix}-dateFrom`} className="po-jobs-filter__label po-jobs-filter__label--sub">
+                From
+              </label>
+              <input
+                id={`${idPrefix}-dateFrom`}
+                type="date"
+                name="dateFrom"
+                defaultValue={state.dateFrom}
+                className="po-jobs-filter__input po-jobs-filter__input--date"
+              />
+            </div>
+            <div className="po-jobs-filter__date-block">
+              <label htmlFor={`${idPrefix}-dateTo`} className="po-jobs-filter__label po-jobs-filter__label--sub">
+                To
+              </label>
+              <input
+                id={`${idPrefix}-dateTo`}
+                type="date"
+                name="dateTo"
+                defaultValue={state.dateTo}
+                className="po-jobs-filter__input po-jobs-filter__input--date"
+              />
+            </div>
           </div>
-          <div className="space-y-1">
-            <label htmlFor={`${idPrefix}-dateTo`} className="text-xs text-[#6b6880]">
-              To
-            </label>
-            <input
-              id={`${idPrefix}-dateTo`}
-              type="date"
-              name="dateTo"
-              defaultValue={state.dateTo}
-              className="h-11 min-h-11 w-full rounded-xl border border-[#ebe7f4] bg-[#faf8ff] px-3 text-sm text-[#1e1b36] outline-none focus:border-[#6d6ae8]/45 focus:ring-4 focus:ring-[#6d6ae8]/12"
-            />
-          </div>
-        </div>
+        ) : null}
       </fieldset>
 
-      <div className="flex items-center justify-between gap-2 pt-1">
-        <p className="text-xs text-[#6b6880]">Filters apply automatically.</p>
-        <Link
-          href="/jobs"
-          className="inline-flex h-11 min-h-11 items-center justify-center rounded-full border border-[#e4dff5] bg-white px-4 text-sm font-semibold text-[#6b6880] transition-[color,background-color,border-color] hover:border-[#6d6ae8]/30 hover:bg-[#faf8ff] hover:text-[#1e1b36] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
-        >
-          Clear all
+      <div className="po-jobs-filter__footer">
+        <p className="po-jobs-filter__hint">Filters apply as you select them.</p>
+        <Link href="/jobs" className="po-jobs-filter__reset">
+          Reset
         </Link>
       </div>
     </form>

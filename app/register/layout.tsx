@@ -10,5 +10,9 @@ export const metadata: Metadata = {
 export default function RegisterLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return <Suspense fallback={null}>{children}</Suspense>;
+  return (
+    <div className="po-auth-layout-root">
+      <Suspense fallback={null}>{children}</Suspense>
+    </div>
+  );
 }

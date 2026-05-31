@@ -84,17 +84,7 @@ export function applicationStatusSelectTriggerClass(raw: string): string {
   }
 }
 
-export function formatAppliedAt(iso: string): string {
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(d);
-}
+export { formatDateTimeIst as formatAppliedAt } from "@/src/lib/formatDateTimeIst";
 
 export function startOfLocalDay(d = new Date()): Date {
   const x = new Date(d);

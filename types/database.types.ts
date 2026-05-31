@@ -200,6 +200,7 @@ export type Database = {
           description: string
           id: string
           is_active: boolean
+          job_code: string
           location: string
           module: string | null
           qualification_needed: string | null
@@ -212,6 +213,7 @@ export type Database = {
           description: string
           id?: string
           is_active?: boolean
+          job_code?: string
           location: string
           module?: string | null
           qualification_needed?: string | null
@@ -224,6 +226,7 @@ export type Database = {
           description?: string
           id?: string
           is_active?: boolean
+          job_code?: string
           location?: string
           module?: string | null
           qualification_needed?: string | null

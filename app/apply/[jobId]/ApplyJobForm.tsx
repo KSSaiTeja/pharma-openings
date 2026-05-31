@@ -4,6 +4,13 @@ import { FileText, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  AuthAlert,
+  AuthButton,
+  AuthField,
+  AuthInput,
+  AuthSelect,
+} from "@/app/components/auth/AuthUi";
+import {
   DEPARTMENT_OPTIONS,
   OTHER_OPTION,
   getDesignationOptions,
@@ -19,6 +26,7 @@ import {
   inferResumeContentType,
   resumeValidationMessage,
 } from "@/src/lib/resumeUpload";
+import { formatDateTimeIst } from "@/src/lib/formatDateTimeIst";
 import { createSupabaseClient } from "@/src/lib/supabase";
 import type { CandidateRow, JobRow } from "@/types/database.types";
 
@@ -504,12 +512,7 @@ export function ApplyJobForm({
           .eq("job_id", jobId)
           .maybeSingle();
         if (existing?.created_at) {
-          const date = new Intl.DateTimeFormat("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          }).format(new Date(existing.created_at));
-          setError(`You’ve already applied for this position on ${date}.`);
+          setError(`You’ve already applied for this position on ${formatDateTimeIst(existing.created_at)}.`);
         } else {
           setError("You’ve already applied for this position.");
         }
@@ -552,96 +555,62 @@ export function ApplyJobForm({
   }, [candidate, form, jobId, onRequireReauth, onSubmitted, refreshCandidate, resumeFile]);
 
   return (
-    <>
+    <div className="po-apply-form__body">
       {restoredDraftNotice ? (
-        <p
-          className="mt-4 rounded-2xl border border-[var(--color-po-teal)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]"
-          role="status"
-          aria-live="polite"
-        >
-          We restored your in-progress application details from your last session.
-        </p>
+        <AuthAlert variant="info">We restored your in-progress application from your last session.</AuthAlert>
       ) : null}
       {closed ? (
-        <p
-          className="mt-6 rounded-2xl border border-[var(--color-po-coral)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm font-semibold text-[var(--color-po-navy)]"
-          role="alert"
-          aria-live="assertive"
-        >
-          This position has been closed. Browse other openings.
-        </p>
+        <AuthAlert variant="warning">This position has been closed. Browse other openings.</AuthAlert>
       ) : null}
-
-      {warning ? (
-        <p
-          className="mt-4 rounded-2xl border border-[var(--color-po-gold)]/45 bg-[var(--color-po-lavender)] px-4 py-3 text-sm font-semibold text-[var(--color-po-navy)]"
-          role="status"
-          aria-live="polite"
-        >
-          {warning}
-        </p>
-      ) : null}
-
-      {error ? (
-        <p
-          className="mt-4 rounded-2xl border border-[var(--color-po-coral)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]"
-          role="alert"
-          aria-live="assertive"
-        >
-          {error}
-        </p>
-      ) : null}
+      {warning ? <AuthAlert variant="warning">{warning}</AuthAlert> : null}
+      {error ? <AuthAlert variant="error">{error}</AuthAlert> : null}
 
       <form
-        className="mt-8 space-y-4"
+        className="po-apply-form__fields"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
         }}
       >
-        <label className="block text-sm font-semibold text-[var(--color-po-navy)]" htmlFor="apply-full-name">
-          Full name
-          <input
+        <AuthField label="Full name" htmlFor="apply-full-name">
+          <AuthInput
             id="apply-full-name"
             readOnly
             tabIndex={-1}
             aria-readonly="true"
             value={candidate.full_name}
-            className="mt-2 w-full cursor-not-allowed rounded-2xl border border-[var(--color-po-lavender-deep)] bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-muted)]"
+            className="po-auth-input--readonly"
           />
-        </label>
+        </AuthField>
 
-        <label className="block text-sm font-semibold text-[var(--color-po-navy)]" htmlFor="apply-email">
-          Email
-          <input
+        <AuthField label="Email" htmlFor="apply-email">
+          <AuthInput
             id="apply-email"
             readOnly
             tabIndex={-1}
             aria-readonly="true"
             value={candidate.email}
-            className="mt-2 w-full cursor-not-allowed rounded-2xl border border-[var(--color-po-lavender-deep)] bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-muted)]"
+            className="po-auth-input--readonly"
           />
-        </label>
+        </AuthField>
 
-        <label className="block text-sm font-semibold text-[var(--color-po-navy)]" htmlFor="apply-mobile">
-          Mobile
-          <input
+        <AuthField label="Mobile" htmlFor="apply-mobile">
+          <AuthInput
             id="apply-mobile"
             readOnly
             tabIndex={-1}
             aria-readonly="true"
             value={candidate.mobile}
-            className="mt-2 w-full cursor-not-allowed rounded-2xl border border-[var(--color-po-lavender-deep)] bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-muted)]"
+            className="po-auth-input--readonly"
           />
-        </label>
+        </AuthField>
 
-        <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-          Department
-          <select
+        <AuthField label="Department" htmlFor="apply-department" required>
+          <AuthSelect
+            id="apply-department"
             value={department}
             onChange={(e) => onDepartmentChange(e.target.value)}
             required
-            className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
           >
             <option value="">Select department</option>
             {DEPARTMENT_OPTIONS.map((option) => (
@@ -650,29 +619,28 @@ export function ApplyJobForm({
               </option>
             ))}
             <option value={OTHER_OPTION}>{OTHER_OPTION}</option>
-          </select>
-        </label>
+          </AuthSelect>
+        </AuthField>
+
         {department === OTHER_OPTION ? (
-          <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-            Enter department
-            <input
+          <AuthField label="Enter department" htmlFor="apply-department-custom" required>
+            <AuthInput
+              id="apply-department-custom"
               value={departmentCustom}
               onChange={(e) => setForm((p) => ({ ...p, departmentCustom: e.target.value }))}
               required
               maxLength={120}
-              className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
             />
-          </label>
+          </AuthField>
         ) : null}
 
-        <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-          Sub-department
-          <select
+        <AuthField label="Sub-department" htmlFor="apply-sub-department" required>
+          <AuthSelect
+            id="apply-sub-department"
             value={subDepartment}
             onChange={(e) => onSubDepartmentChange(e.target.value)}
             required
             disabled={!department}
-            className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4 disabled:cursor-not-allowed disabled:bg-[var(--color-po-lavender)]"
           >
             <option value="">{department ? "Select sub-department" : "Select department first"}</option>
             {subDepartmentOptions.map((option) => (
@@ -683,29 +651,28 @@ export function ApplyJobForm({
             {!subDepartmentOptions.includes(OTHER_OPTION) ? (
               <option value={OTHER_OPTION}>{OTHER_OPTION}</option>
             ) : null}
-          </select>
-        </label>
+          </AuthSelect>
+        </AuthField>
+
         {subDepartment === OTHER_OPTION ? (
-          <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-            Enter sub-department
-            <input
+          <AuthField label="Enter sub-department" htmlFor="apply-sub-department-custom" required>
+            <AuthInput
+              id="apply-sub-department-custom"
               value={subDepartmentCustom}
               onChange={(e) => setForm((p) => ({ ...p, subDepartmentCustom: e.target.value }))}
               required
               maxLength={120}
-              className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
             />
-          </label>
+          </AuthField>
         ) : null}
 
-        <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-          Current designation
-          <select
+        <AuthField label="Current designation" htmlFor="apply-designation" required>
+          <AuthSelect
+            id="apply-designation"
             value={designation}
             onChange={(e) => onDesignationChange(e.target.value)}
             required
             disabled={!department}
-            className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4 disabled:cursor-not-allowed disabled:bg-[var(--color-po-lavender)]"
           >
             <option value="">{department ? "Select designation" : "Select department first"}</option>
             {designationOptions.map((option) => (
@@ -716,140 +683,122 @@ export function ApplyJobForm({
             {!designationOptions.includes(OTHER_OPTION) ? (
               <option value={OTHER_OPTION}>{OTHER_OPTION}</option>
             ) : null}
-          </select>
-        </label>
+          </AuthSelect>
+        </AuthField>
+
         {designation === OTHER_OPTION ? (
-          <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-            Enter designation
-            <input
+          <AuthField label="Enter designation" htmlFor="apply-designation-custom" required>
+            <AuthInput
+              id="apply-designation-custom"
               value={designationCustom}
               onChange={(e) => setForm((p) => ({ ...p, designationCustom: e.target.value }))}
               required
               maxLength={120}
-              className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
             />
-          </label>
+          </AuthField>
         ) : null}
 
-        <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-          Current company
-          <input
+        <AuthField label="Current company" htmlFor="apply-company" required>
+          <AuthInput
+            id="apply-company"
             value={company}
             onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
             required
             maxLength={120}
-            className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
             placeholder="e.g. ABC Pharma Pvt Ltd"
           />
-        </label>
+        </AuthField>
 
-        <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-          Highest qualification
-          <select
+        <AuthField label="Highest qualification" htmlFor="apply-qualification" required>
+          <AuthSelect
+            id="apply-qualification"
             value={qualification}
             onChange={(e) => onQualificationChange(e.target.value)}
-            className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
+            required
           >
             {APPLY_QUALIFICATIONS.map((q) => (
               <option key={q} value={q}>
                 {q}
               </option>
             ))}
-          </select>
-        </label>
+          </AuthSelect>
+        </AuthField>
+
         {qualification === "Other" ? (
-          <label className="block text-sm font-semibold text-[var(--color-po-navy)]">
-            Specify qualification
-            <input
+          <AuthField label="Specify qualification" htmlFor="apply-qualification-custom" required>
+            <AuthInput
+              id="apply-qualification-custom"
               value={qualificationCustom}
               onChange={(e) => setForm((p) => ({ ...p, qualificationCustom: e.target.value }))}
               required
               maxLength={120}
-              className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
               placeholder="Enter your qualification"
             />
-          </label>
+          </AuthField>
         ) : null}
 
-        <div className="rounded-2xl border border-[var(--color-po-lavender-deep)] bg-[var(--color-po-lavender)] px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-po-muted)]">
+        <div className="po-apply-module" aria-labelledby="apply-module-label">
+          <p id="apply-module-label" className="po-apply-module__label">
             Module
           </p>
-          <p className="mt-1 text-sm font-semibold text-[var(--color-po-navy)]">{moduleLabel}</p>
+          <p className="po-apply-module__value">{moduleLabel}</p>
         </div>
 
-        <div>
-          <p className="text-sm font-semibold text-[var(--color-po-navy)]">Resume</p>
-          <p id="apply-resume-hint" className="mt-1 text-xs text-[var(--color-po-muted)]">
-            We&apos;ll use your profile resume unless you upload a new file (PDF/DOC, max 5MB).
-          </p>
-          {candidate.resume_url ? (
-            <a
-              href={candidate.resume_url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
-            >
-              View current resume
-            </a>
-          ) : (
-            <p className="mt-2 text-sm text-[var(--color-po-muted)]">No resume on file yet.</p>
-          )}
-
-          <input
-            id="apply-resume-file"
-            ref={resumeInputRef}
-            type="file"
-            accept={RESUME_ACCEPT_ATTR}
-            aria-describedby="apply-resume-hint"
-            onChange={(e) => onResumeSelected(e.target.files?.[0] ?? null)}
-            className="sr-only"
-          />
-
-          <div className="mt-3 flex flex-col gap-2">
+        <div className="po-apply-resume">
+          <AuthField label="Resume" htmlFor="apply-resume-file" hint="PDF or DOC, max 5 MB. We use your profile resume unless you upload a new file.">
+            <input
+              id="apply-resume-file"
+              ref={resumeInputRef}
+              type="file"
+              accept={RESUME_ACCEPT_ATTR}
+              onChange={(e) => onResumeSelected(e.target.files?.[0] ?? null)}
+              className="sr-only"
+            />
+            {candidate.resume_url ? (
+              <a
+                href={candidate.resume_url}
+                target="_blank"
+                rel="noreferrer"
+                className="po-apply-resume__link"
+              >
+                View current resume
+              </a>
+            ) : (
+              <p className="po-apply-resume__empty">No resume on file yet.</p>
+            )}
             {!resumeFile ? (
-              <button
+              <AuthButton
                 type="button"
+                variant="secondary"
+                className="po-auth-btn--block po-apply-resume__choose"
                 onClick={() => resumeInputRef.current?.click()}
-                className="min-h-11 w-full rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/40 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
               >
                 Choose file
-              </button>
+              </AuthButton>
             ) : (
-              <div className="flex items-center gap-2 rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-3 py-2.5 pr-2 shadow-sm">
-                <FileText
-                  className="h-5 w-5 shrink-0 text-[var(--color-po-violet)]"
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--color-po-navy)]">
-                  {resumeFile.name}
-                </span>
+              <div className="po-apply-resume__file-row">
+                <FileText className="po-apply-resume__file-icon" aria-hidden />
+                <span className="po-apply-resume__file-name">{resumeFile.name}</span>
                 <button
                   type="button"
                   onClick={clearResumeSelection}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--color-po-muted)] transition-colors hover:bg-[var(--color-po-lavender)] hover:text-[var(--color-po-navy)] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
+                  className="po-apply-resume__remove"
                   aria-label="Remove selected file"
                 >
-                  <X className="h-4 w-4" strokeWidth={2.25} />
+                  <X className="po-apply-resume__remove-icon" strokeWidth={2.25} />
                 </button>
               </div>
             )}
-          </div>
-          {resumeHint ? (
-            <p className="mt-2 text-sm text-[var(--color-po-coral)]" role="alert" aria-live="polite">
-              {resumeHint}
-            </p>
-          ) : null}
+            {resumeHint ? <p className="po-auth-field-error">{resumeHint}</p> : null}
+          </AuthField>
         </div>
 
-        <button
-          type="submit"
-          disabled={busy || closed}
-          className="min-h-11 w-full rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {busy ? "Submitting…" : "Submit application"}
-        </button>
+        <div className="po-auth-actions">
+          <AuthButton type="submit" variant="primary" className="po-auth-btn--block" disabled={busy || closed}>
+            {busy ? "Submitting…" : "Submit application"}
+          </AuthButton>
+        </div>
       </form>
-    </>
+    </div>
   );
 }

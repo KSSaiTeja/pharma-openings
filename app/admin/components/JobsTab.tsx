@@ -4,6 +4,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Pencil, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import {
+  AdminActions,
+  AdminActionsGroup,
+  AdminAlert,
+  AdminCard,
+  AdminCardList,
+  AdminSection,
+  AdminTableWrap,
+  adminDialogClass,
+} from "@/app/admin/components/AdminUi";
 import { JOB_CSV_TEMPLATE_HEADERS, parseJobCsv } from "@/app/admin/lib/jobCsv";
 import {
   JOB_MODULES,
@@ -34,6 +44,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { adminJobUpsertSchema } from "@/src/lib/schemas/forms";
 import type { Database, Tables, TablesInsert } from "@/types/database.types";
 
@@ -300,72 +311,74 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
   };
 
   return (
-    <div className="space-y-4">
-      {uploadProgress ? (
-        <p className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
-          {uploadProgress}
-        </p>
-      ) : null}
+    <AdminSection>
+      {uploadProgress ? <AdminAlert variant="info">{uploadProgress}</AdminAlert> : null}
       <Dialog open={statusPopup.open} onOpenChange={(open) => setStatusPopup((prev) => ({ ...prev, open }))}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className={cn(adminDialogClass, "sm:max-w-lg")}>
+          <DialogHeader className="po-admin-dialog__header">
             <DialogTitle
-              className={`text-2xl font-bold ${
-                statusPopup.tone === "success" ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"
-              }`}
+              className={cn(
+                "po-admin-dialog__title",
+                statusPopup.tone === "success" ? "text-[#14532d]" : "text-[#9a3412]",
+              )}
             >
               {statusPopup.title}
             </DialogTitle>
           </DialogHeader>
           {statusPopup.details.length > 0 ? (
-            <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-300">
+            <div className="po-admin-dialog__body space-y-2 text-sm text-[var(--po-admin-muted)]">
               {statusPopup.details.map((detail) => (
                 <p key={detail}>{detail}</p>
               ))}
             </div>
           ) : null}
-          <DialogFooter>
-            <Button type="button" onClick={() => setStatusPopup((prev) => ({ ...prev, open: false }))}>
+          <DialogFooter className="po-admin-dialog__footer">
+            <Button type="button" className="po-admin-btn-primary" onClick={() => setStatusPopup((prev) => ({ ...prev, open: false }))}>
               OK
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <Button type="button" onClick={openCreate}>
-          Add job
-        </Button>
-        <Button type="button" variant="outline" onClick={downloadTemplate}>
-          Download CSV template
-        </Button>
-        <Button type="button" variant="secondary" onClick={() => fileRef.current?.click()}>
-          <Upload className="h-4 w-4" />
-          Bulk upload CSV
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv,text/csv"
-          className="hidden"
-          onChange={(e) => void onCsv(e.target.files?.[0] ?? null)}
-        />
-        <Button type="button" variant="outline" onClick={() => void load()} disabled={loading}>
-          {loading ? "Refreshing…" : "Refresh"}
-        </Button>
-      </div>
+      <AdminActions>
+        <AdminActionsGroup>
+          <Button type="button" className="po-admin-btn-primary" onClick={openCreate}>
+            Add job
+          </Button>
+          <Button type="button" variant="outline" className="po-admin-btn-outline" onClick={downloadTemplate}>
+            Download CSV template
+          </Button>
+          <Button type="button" variant="secondary" className="po-admin-btn-outline" onClick={() => fileRef.current?.click()}>
+            <Upload className="h-4 w-4" />
+            Bulk upload CSV
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => void onCsv(e.target.files?.[0] ?? null)}
+          />
+          <Button type="button" variant="outline" className="po-admin-btn-outline" onClick={() => void load()} disabled={loading}>
+            {loading ? "Refreshing…" : "Refresh"}
+          </Button>
+        </AdminActionsGroup>
+      </AdminActions>
 
-      <div className="space-y-3 md:hidden">
+      <AdminCardList className="md:hidden">
         {loading ? (
-          <p className="text-sm text-zinc-500">Loading…</p>
+          <p className="text-sm text-[var(--po-admin-muted)]">Loading…</p>
         ) : jobs.length === 0 ? (
-          <p className="text-sm text-zinc-500">No jobs yet.</p>
+          <p className="text-sm text-[var(--po-admin-muted)]">No jobs yet.</p>
         ) : (
           jobs.map((j) => (
-            <div key={j.id} className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+            <AdminCard key={j.id}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="font-semibold text-zinc-900 dark:text-zinc-50">{j.title}</p>
+                  <p className="font-mono text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    {j.job_code}
+                  </p>
                   <p className="text-sm text-zinc-600 dark:text-zinc-300">
                     {j.location} · {j.module ?? "—"}
                   </p>
@@ -379,7 +392,7 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
                     <Switch checked={j.is_active} onCheckedChange={(c) => void toggleActive(j, Boolean(c))} />
                   </div>
                   <div className="flex gap-1">
-                    <Button type="button" size="icon" variant="ghost" aria-label="Edit" onClick={() => openEdit(j)}>
+                    <Button type="button" size="icon" variant="ghost" className="po-admin-btn-ghost" aria-label="Edit" onClick={() => openEdit(j)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
@@ -396,16 +409,17 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
                   </div>
                 </div>
               </div>
-            </div>
+            </AdminCard>
           ))
         )}
-      </div>
+      </AdminCardList>
 
-      <div className="hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 md:block">
+      <AdminTableWrap className="hidden md:block">
         <Table>
           <caption className="sr-only">Job postings and bulk actions</caption>
           <TableHeader>
             <TableRow>
+              <TableHead>Job ID</TableHead>
               <TableHead>Title</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Module</TableHead>
@@ -418,19 +432,22 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-sm text-zinc-500">
+                <TableCell colSpan={8} className="po-admin-table-empty">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : jobs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-sm text-zinc-500">
+                <TableCell colSpan={8} className="po-admin-table-empty">
                   No jobs yet.
                 </TableCell>
               </TableRow>
             ) : (
               jobs.map((j) => (
                 <TableRow key={j.id}>
+                  <TableCell className="whitespace-nowrap font-mono text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                    {j.job_code}
+                  </TableCell>
                   <TableCell className="max-w-[200px] font-medium">{j.title}</TableCell>
                   <TableCell>{j.location}</TableCell>
                   <TableCell>{j.module ?? "—"}</TableCell>
@@ -443,14 +460,14 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => openEdit(j)}>
+                    <Button type="button" size="sm" variant="ghost" className="po-admin-btn-ghost" onClick={() => openEdit(j)}>
                       Edit
                     </Button>
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="text-red-600 hover:text-red-700 dark:text-red-400"
+                      className="po-admin-btn-ghost po-admin-btn-destructive"
                       onClick={() => {
                         void openDeleteDialog(j);
                       }}
@@ -463,15 +480,17 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
             )}
           </TableBody>
         </Table>
-      </div>
+      </AdminTableWrap>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Edit job" : "Add job"}</DialogTitle>
-            <DialogDescription>Required fields are marked. Department is optional.</DialogDescription>
+        <DialogContent className={cn(adminDialogClass, "sm:max-w-lg")}>
+          <DialogHeader className="po-admin-dialog__header">
+            <DialogTitle className="po-admin-dialog__title">{editingId ? "Edit job" : "Add job"}</DialogTitle>
+            <DialogDescription className="po-admin-dialog__description">
+              Required fields are marked. Department is optional.
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 py-2">
+          <div className="po-admin-dialog__body po-admin-dialog__body--form grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="job-title">Title *</Label>
               <Input id="job-title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
@@ -546,11 +565,11 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
+          <DialogFooter className="po-admin-dialog__footer">
+            <Button type="button" variant="outline" className="po-admin-btn-outline" onClick={() => setFormOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" onClick={() => void saveJob()} disabled={saveBusy}>
+            <Button type="button" className="po-admin-btn-primary" onClick={() => void saveJob()} disabled={saveBusy}>
               {saveBusy ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
@@ -558,10 +577,12 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
       </Dialog>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{deleteCanHardDelete ? "Delete job?" : "Deactivate job?"}</DialogTitle>
-            <DialogDescription>
+        <DialogContent className={adminDialogClass}>
+          <DialogHeader className="po-admin-dialog__header">
+            <DialogTitle className="po-admin-dialog__title">
+              {deleteCanHardDelete ? "Delete job?" : "Deactivate job?"}
+            </DialogTitle>
+            <DialogDescription className="po-admin-dialog__description">
               {deleteTarget ? (
                 <>
                   {deleteCanHardDelete ? (
@@ -578,16 +599,22 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
               ) : null}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)}>
+          <DialogFooter className="po-admin-dialog__footer">
+            <Button type="button" variant="outline" className="po-admin-btn-outline" onClick={() => setDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" variant="destructive" onClick={() => void confirmDelete()} disabled={deleteBusy}>
+            <Button
+              type="button"
+              variant="destructive"
+              className="po-admin-btn-primary"
+              onClick={() => void confirmDelete()}
+              disabled={deleteBusy}
+            >
               {deleteBusy ? "Working…" : deleteCanHardDelete ? "Delete permanently" : "Deactivate"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminSection>
   );
 }

@@ -8,6 +8,7 @@ import {
   applicationStatusBadgeClass,
   applicationStatusDisplayLabel,
 } from "@/app/admin/admin-constants";
+import { PageTitleBanner } from "@/app/components/site/PageTitleBanner";
 import { useCandidate } from "@/src/context/CandidateContext";
 import { useSavedJobs } from "@/src/context/SavedJobsContext";
 import { setPostAuthRedirect } from "@/src/lib/authSession";
@@ -637,11 +638,14 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <main className="relative flex flex-1 flex-col px-4 pb-20 pt-24 sm:px-6 lg:pt-28">
-        <div className="mx-auto w-full max-w-2xl flex-1">
-          <p className="text-sm text-[var(--color-po-muted)]">Loading your profile…</p>
-        </div>
-      </main>
+      <>
+        <PageTitleBanner title="My profile" />
+        <section className="sign-section pt_110 pb_120">
+          <div className="auto-container centred">
+            <p>Loading your profile…</p>
+          </div>
+        </section>
+      </>
     );
   }
 
@@ -650,18 +654,29 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="relative flex flex-1 flex-col px-4 pb-20 pt-24 sm:px-6 lg:pt-28">
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8">
-        <ProfileEditCard
-          key={`${candidate.id}-${candidate.updated_at}`}
-          candidate={candidate}
-          refreshCandidate={refreshCandidate}
-          router={router}
-          logout={logout}
-        />
-        <ProfileSavedJobsSection />
-        <ProfileApplicationHistory candidateId={candidate.id} />
-      </div>
-    </main>
+    <>
+      <PageTitleBanner title="My profile" />
+      <section className="sign-section pt_110 pb_120">
+        <div className="auto-container">
+          <div className="row clearfix">
+            <div className="col-lg-12 col-md-12 col-sm-12">
+              <ProfileEditCard
+                key={`${candidate.id}-${candidate.updated_at}`}
+                candidate={candidate}
+                refreshCandidate={refreshCandidate}
+                router={router}
+                logout={logout}
+              />
+            </div>
+            <div className="col-lg-12 col-md-12 col-sm-12 mt_30">
+              <ProfileSavedJobsSection />
+            </div>
+            <div className="col-lg-12 col-md-12 col-sm-12 mt_30">
+              <ProfileApplicationHistory candidateId={candidate.id} />
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

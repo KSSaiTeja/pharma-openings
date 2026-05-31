@@ -30,11 +30,18 @@ function createEphemeralAuthStorage(): {
  * - Custom `fetch` always sends `Authorization: Bearer <anon key>` so PostgREST never
  *   receives a stray **authenticated** JWT from another tab or legacy storage keys.
  */
+const publicClientGlobal = globalThis as typeof globalThis & {
+  __PO_SUPABASE_PUBLIC__?: SupabaseClient<Database> | null;
+};
+
 export function createSupabaseClient(): SupabaseClient<Database> | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url?.trim() || !key?.trim()) {
     return null;
+  }
+  if (typeof window !== "undefined" && publicClientGlobal.__PO_SUPABASE_PUBLIC__) {
+    return publicClientGlobal.__PO_SUPABASE_PUBLIC__;
   }
   const safeUrl = url.trim();
   const anonKey = key.trim();
@@ -49,7 +56,7 @@ export function createSupabaseClient(): SupabaseClient<Database> | null {
     return fetch(input, { ...init, headers });
   };
 
-  return createClient<Database>(safeUrl, anonKey, {
+  const client = createClient<Database>(safeUrl, anonKey, {
     global: { fetch: fetchWithAnonRole },
     auth: {
       persistSession: false,
@@ -59,6 +66,24 @@ export function createSupabaseClient(): SupabaseClient<Database> | null {
       storageKey: "po-public-supabase-auth",
     },
   });
+  if (typeof window !== "undefined") {
+    publicClientGlobal.__PO_SUPABASE_PUBLIC__ = client;
+  }
+  return client;
+}
+
+/** Clear invalid admin auth session (e.g. stale refresh token). */
+export async function clearInvalidAdminSession(
+  supabase: SupabaseClient<Database>,
+): Promise<void> {
+  try {
+    const { error } = await supabase.auth.getSession();
+    if (error?.message?.includes("Refresh Token")) {
+      await supabase.auth.signOut();
+    }
+  } catch {
+    await supabase.auth.signOut();
+  }
 }
 
 const adminBrowserGlobal = globalThis as typeof globalThis & {

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
-import { HeroSection } from "./components/HeroSection";
-import { SiteSections } from "./components/SiteSections";
+import { HomePage } from "./components/site";
 import { fetchRecentActiveJobs, HOME_PAGE_JOBS_LIMIT } from "@/src/lib/jobs";
 
 export const dynamic = "force-dynamic";
@@ -18,10 +17,5 @@ export default async function Home() {
   );
   const homeJobsLoadError = Boolean(error);
 
-  return (
-    <main>
-      <HeroSection />
-      <SiteSections homeJobs={homeJobs} homeJobsLoadError={homeJobsLoadError} />
-    </main>
-  );
+  return <HomePage homeJobs={homeJobs} homeJobsLoadError={homeJobsLoadError} />;
 }

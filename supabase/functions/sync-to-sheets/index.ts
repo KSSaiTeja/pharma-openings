@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 
+import { formatDateTimeIst } from "../_shared/formatDateTimeIst.ts";
+
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -13,6 +15,8 @@ const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
 
 const APPLICATION_ID_HEADER = "Application ID";
+const JOB_ID_HEADER = "Job ID";
+const APPLIED_FOR_HEADER = "Applied For (Job Title)";
 
 const APPLICATIONS_HEADERS = [
   APPLICATION_ID_HEADER,
@@ -25,7 +29,8 @@ const APPLICATIONS_HEADERS = [
   "Current Company",
   "Highest Qualification",
   "Module",
-  "Applied For (Job Title)",
+  JOB_ID_HEADER,
+  APPLIED_FOR_HEADER,
   "Job Location",
   "Status",
   "Resume Link",
@@ -76,11 +81,13 @@ type ApplicationRow = {
         title: string | null;
         location: string | null;
         module: string | null;
+        job_code: string | null;
       }
     | {
         title: string | null;
         location: string | null;
         module: string | null;
+        job_code: string | null;
       }[]
     | null;
   candidates:
@@ -270,6 +277,41 @@ async function googleSheetsRequest(
   return fetchWithRetry(url, { ...init, headers });
 }
 
+function columnIndexToA1(colIndex0: number): string {
+  let n = colIndex0 + 1;
+  let label = "";
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    label = String.fromCharCode(65 + rem) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+}
+
+async function getSheetId(
+  spreadsheetId: string,
+  tabName: string,
+  accessToken: string,
+): Promise<number> {
+  const getRes = await googleSheetsRequest(
+    accessToken,
+    `${GOOGLE_SHEETS_API}/${spreadsheetId}?fields=sheets.properties(sheetId,title)`,
+  );
+  if (!getRes.ok) {
+    const details = await getRes.text().catch(() => "");
+    throw new Error(`Failed to read spreadsheet sheets (${getRes.status}): ${details}`);
+  }
+  const meta = (await getRes.json()) as {
+    sheets?: { properties?: { sheetId?: number; title?: string } }[];
+  };
+  const sheet = (meta.sheets ?? []).find((s) => s.properties?.title === tabName);
+  const sheetId = sheet?.properties?.sheetId;
+  if (sheetId == null) {
+    throw new Error(`Sheet tab "${tabName}" not found after create.`);
+  }
+  return sheetId;
+}
+
 async function ensureTabExists(
   spreadsheetId: string,
   tabName: string,
@@ -317,42 +359,108 @@ async function ensureTabExists(
   }
 }
 
+async function writeApplicationsHeaderRow(
+  spreadsheetId: string,
+  accessToken: string,
+): Promise<void> {
+  const lastCol = columnIndexToA1(APPLICATIONS_HEADERS.length - 1);
+  const range = encodeURIComponent(`${APPLICATIONS_TAB}!A1:${lastCol}1`);
+  const putRes = await googleSheetsRequest(
+    accessToken,
+    `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${range}?valueInputOption=RAW`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ values: [APPLICATIONS_HEADERS] }),
+    },
+  );
+  if (!putRes.ok) {
+    const details = await putRes.text().catch(() => "");
+    throw new Error(`Failed to write header row (${putRes.status}): ${details}`);
+  }
+}
+
+async function ensureApplicationsJobIdColumn(
+  spreadsheetId: string,
+  accessToken: string,
+  headerRow: string[],
+): Promise<void> {
+  if (headerRow.some((cell) => String(cell).trim() === JOB_ID_HEADER)) return;
+
+  const appliedForIdx = headerRow.findIndex((cell) => String(cell).trim() === APPLIED_FOR_HEADER);
+  const insertAt = appliedForIdx >= 0 ? appliedForIdx : headerRow.length;
+  const sheetId = await getSheetId(spreadsheetId, APPLICATIONS_TAB, accessToken);
+
+  const insertRes = await googleSheetsRequest(
+    accessToken,
+    `${GOOGLE_SHEETS_API}/${spreadsheetId}:batchUpdate`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        requests: [
+          {
+            insertDimension: {
+              range: {
+                sheetId,
+                dimension: "COLUMNS",
+                startIndex: insertAt,
+                endIndex: insertAt + 1,
+              },
+              inheritFromBefore: false,
+            },
+          },
+        ],
+      }),
+    },
+  );
+  if (!insertRes.ok) {
+    const details = await insertRes.text().catch(() => "");
+    throw new Error(`Failed to add "${JOB_ID_HEADER}" column (${insertRes.status}): ${details}`);
+  }
+
+  const colLetter = columnIndexToA1(insertAt);
+  const headerCell = encodeURIComponent(`${APPLICATIONS_TAB}!${colLetter}1`);
+  const labelRes = await googleSheetsRequest(
+    accessToken,
+    `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${headerCell}?valueInputOption=RAW`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ values: [[JOB_ID_HEADER]] }),
+    },
+  );
+  if (!labelRes.ok) {
+    const details = await labelRes.text().catch(() => "");
+    throw new Error(`Failed to label "${JOB_ID_HEADER}" column (${labelRes.status}): ${details}`);
+  }
+}
+
 async function ensureApplicationsHeaderRow(
   spreadsheetId: string,
   accessToken: string,
 ): Promise<void> {
-  const range = encodeURIComponent(`${APPLICATIONS_TAB}!A1:M1`);
+  const lastCol = columnIndexToA1(Math.max(APPLICATIONS_HEADERS.length - 1, 14));
+  const range = encodeURIComponent(`${APPLICATIONS_TAB}!A1:${lastCol}1`);
   const getRes = await googleSheetsRequest(
     accessToken,
     `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${range}`,
   );
   const row = getRes.ok
-    ? ((await getRes.json()) as { values?: string[][] }).values?.[0]
-    : undefined;
-  const a1 = row?.[0] != null ? String(row[0]).trim() : "";
-
-  if (a1 === APPLICATION_ID_HEADER) return;
+    ? ((await getRes.json()) as { values?: string[][] }).values?.[0] ?? []
+    : [];
+  const a1 = row[0] != null ? String(row[0]).trim() : "";
 
   if (a1 === "") {
-    const putRes = await googleSheetsRequest(
-      accessToken,
-      `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${range}?valueInputOption=RAW`,
-      {
-        method: "PUT",
-        body: JSON.stringify({ values: [APPLICATIONS_HEADERS] }),
-      },
-    );
-    if (!putRes.ok) {
-      const details = await putRes.text().catch(() => "");
-      throw new Error(`Failed to write header row (${putRes.status}): ${details}`);
-    }
+    await writeApplicationsHeaderRow(spreadsheetId, accessToken);
     return;
   }
 
-  throw new Error(
-    `The "${APPLICATIONS_TAB}" sheet must use the new header with "${APPLICATION_ID_HEADER}" in cell A1. ` +
-      "Clear this tab (or use a new spreadsheet), then sync again. Old sheets started with Timestamp in A1 are not compatible.",
-  );
+  if (a1 !== APPLICATION_ID_HEADER) {
+    throw new Error(
+      `The "${APPLICATIONS_TAB}" sheet must use the new header with "${APPLICATION_ID_HEADER}" in cell A1. ` +
+        "Clear this tab (or use a new spreadsheet), then sync again. Old sheets started with Timestamp in A1 are not compatible.",
+    );
+  }
+
+  await ensureApplicationsJobIdColumn(spreadsheetId, accessToken, row);
 }
 
 async function readExistingApplicationIdsFromSheet(
@@ -377,6 +485,86 @@ async function readExistingApplicationIdsFromSheet(
     }
   }
   return set;
+}
+
+async function readApplicationsHeaderRow(
+  spreadsheetId: string,
+  accessToken: string,
+): Promise<string[]> {
+  const lastCol = columnIndexToA1(Math.max(APPLICATIONS_HEADERS.length - 1, 14));
+  const range = encodeURIComponent(`${APPLICATIONS_TAB}!A1:${lastCol}1`);
+  const getRes = await googleSheetsRequest(
+    accessToken,
+    `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${range}`,
+  );
+  if (!getRes.ok) return [];
+  const body = (await getRes.json()) as { values?: string[][] };
+  return body.values?.[0] ?? [];
+}
+
+async function updateJobIdsForApplications(
+  spreadsheetId: string,
+  accessToken: string,
+  apps: ApplicationRow[],
+): Promise<number> {
+  if (apps.length === 0) return 0;
+
+  const headerRow = await readApplicationsHeaderRow(spreadsheetId, accessToken);
+  const jobIdColIdx = headerRow.findIndex((cell) => String(cell).trim() === JOB_ID_HEADER);
+  if (jobIdColIdx < 0) return 0;
+
+  const idRange = encodeURIComponent(`${APPLICATIONS_TAB}!A2:A`);
+  const getRes = await googleSheetsRequest(
+    accessToken,
+    `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${idRange}`,
+  );
+  if (!getRes.ok) return 0;
+
+  const body = (await getRes.json()) as { values?: string[][] };
+  const appIdToRow = new Map<string, number>();
+  (body.values ?? []).forEach((row, index) => {
+    const cell = row[0];
+    if (typeof cell === "string" && isApplicationUuid(cell)) {
+      appIdToRow.set(normalizeAppId(cell), index + 2);
+    }
+  });
+
+  const colLetter = columnIndexToA1(jobIdColIdx);
+  const data: { range: string; values: string[][] }[] = [];
+
+  for (const app of apps) {
+    const job = Array.isArray(app.jobs) ? app.jobs[0] : app.jobs;
+    const jobCode = job?.job_code?.trim() ?? "";
+    if (!jobCode) continue;
+
+    const rowNum = appIdToRow.get(normalizeAppId(app.id));
+    if (!rowNum) continue;
+
+    data.push({
+      range: `${APPLICATIONS_TAB}!${colLetter}${rowNum}`,
+      values: [[jobCode]],
+    });
+  }
+
+  if (data.length === 0) return 0;
+
+  const batchRes = await googleSheetsRequest(
+    accessToken,
+    `${GOOGLE_SHEETS_API}/${spreadsheetId}/values:batchUpdate`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        valueInputOption: "RAW",
+        data,
+      }),
+    },
+  );
+  if (!batchRes.ok) {
+    const details = await batchRes.text().catch(() => "");
+    throw new Error(`Failed to backfill "${JOB_ID_HEADER}" values (${batchRes.status}): ${details}`);
+  }
+
+  return data.length;
 }
 
 async function appendApplicationsRows(
@@ -482,7 +670,7 @@ async function appendTalentPoolRows(
 function talentPoolCandidateToValues(c: TalentPoolCandidateRow): string[] {
   return [
     toDisplay(c.id),
-    toDisplay(c.created_at),
+    formatDateTimeIst(c.created_at),
     toDisplay(c.full_name),
     toDisplay(c.email),
     toDisplay(c.mobile),
@@ -506,7 +694,7 @@ function applicationToValues(app: ApplicationRow): string[] {
 
   return [
     toDisplay(app.id),
-    toDisplay(app.created_at),
+    formatDateTimeIst(app.created_at),
     toDisplay(app.full_name),
     toDisplay(app.email),
     toDisplay(app.mobile),
@@ -515,6 +703,7 @@ function applicationToValues(app: ApplicationRow): string[] {
     toDisplay(company),
     toDisplay(qualification),
     toDisplay(job?.module ?? ""),
+    toDisplay(job?.job_code ?? ""),
     toDisplay(job?.title ?? ""),
     toDisplay(job?.location ?? ""),
     toDisplay(app.status),
@@ -707,7 +896,7 @@ Deno.serve(async (req) => {
         snapshot_qualification,
         snapshot_resume_url,
         status,
-        jobs (title, location, module),
+        jobs (title, location, module, job_code),
         candidates (current_designation, current_department, current_company, highest_qualification, resume_url)
       `;
 
@@ -745,6 +934,7 @@ Deno.serve(async (req) => {
     const valueRows = toAppend.map(applicationToValues);
 
     await appendApplicationsRows(spreadsheetId, valueRows, accessToken);
+    const jobIdsUpdated = await updateJobIdsForApplications(spreadsheetId, accessToken, ordered);
 
     return json({
       success: true,
@@ -752,6 +942,7 @@ Deno.serve(async (req) => {
       applications_synced: valueRows.length,
       applications_skipped_duplicates: skippedDuplicates,
       applications_on_page: ordered.length,
+      applications_job_ids_updated: jobIdsUpdated,
       page,
       talent_pool_synced: 0,
       talent_pool_skipped_duplicates: 0,

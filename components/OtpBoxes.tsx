@@ -104,7 +104,7 @@ export function OtpBoxes({ value, onChange, disabled, length = OTP_DIGIT_COUNT, 
 
   return (
     <div
-      className="mt-2 flex flex-wrap gap-2 sm:gap-3"
+      className="po-otp-boxes"
       onPasteCapture={handlePaste}
       {...(labelledBy
         ? { role: "group" as const, "aria-labelledby": labelledBy }
@@ -126,7 +126,7 @@ export function OtpBoxes({ value, onChange, disabled, length = OTP_DIGIT_COUNT, 
           onChange={(e) => handleChange(index, e.target.value)}
           onKeyDown={(e) => handleKeyDown(index, e)}
           onFocus={(e) => e.target.select()}
-          className="h-12 w-11 shrink-0 rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white text-center text-lg font-semibold tracking-tight text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4 disabled:cursor-not-allowed disabled:bg-[var(--color-po-lavender)]/60 disabled:text-[var(--color-po-muted)] sm:h-14 sm:w-12"
+          className="po-otp-box"
         />
       ))}
     </div>

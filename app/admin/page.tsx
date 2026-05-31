@@ -6,6 +6,13 @@ import { useCallback, useEffect, useState } from "react";
 
 import { startOfLocalDay } from "@/app/admin/admin-constants";
 import { clearAdminReturn, setAdminReturn } from "@/app/admin/lib/authGate";
+import {
+  AdminAlert,
+  AdminHeader,
+  AdminLoading,
+  AdminMain,
+  adminTabsClass,
+} from "@/app/admin/components/AdminUi";
 import { ApplicationsTab } from "@/app/admin/components/ApplicationsTab";
 import { JobsTab } from "@/app/admin/components/JobsTab";
 import type { AdminStats } from "@/app/admin/components/StatsBar";
@@ -14,7 +21,7 @@ import { TalentPoolTab } from "@/app/admin/components/TalentPoolTab";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { invokeSupabaseFunction } from "@/src/lib/edgeFunctions";
-import { createSupabaseBrowserClient } from "@/src/lib/supabase";
+import { clearInvalidAdminSession, createSupabaseBrowserClient } from "@/src/lib/supabase";
 const SYNC_TIMEOUT_MS = 35_000;
 const ADMIN_TAB_KEY = "po_admin_active_tab";
 
@@ -24,6 +31,7 @@ type SyncToSheetsResponse = {
   applications_synced?: number;
   applications_skipped_duplicates?: number;
   applications_on_page?: number;
+  applications_job_ids_updated?: number;
   talent_pool_synced?: number;
   talent_pool_skipped_duplicates?: number;
   talent_pool_on_page?: number;
@@ -185,9 +193,18 @@ export default function AdminPage() {
           detail = "";
         }
 
+        const jobIdsUpdated =
+          scope === "applications" ? (data.applications_job_ids_updated ?? 0) : 0;
+        const jobIdNote =
+          scope === "applications" && jobIdsUpdated > 0
+            ? ` Updated Job ID on ${jobIdsUpdated} existing row(s) in the sheet.`
+            : scope === "applications"
+              ? " Each row includes Job ID (e.g. PO-2026-0001) so recruiters can match what candidates quote."
+              : "";
+
         setSyncMessage({
           tone: "success",
-          text: `${head}${detail}`.trim(),
+          text: `${head}${detail}${jobIdNote}`.trim(),
         });
         setSyncTick((n) => n + 1);
         bumpStats();
@@ -218,7 +235,9 @@ export default function AdminPage() {
       return;
     }
     let cancelled = false;
-    void supabase.auth.getSession().then(({ data }) => {
+    void (async () => {
+      await clearInvalidAdminSession(supabase);
+      const { data } = await supabase.auth.getSession();
       if (cancelled) return;
       queueMicrotask(() => {
         if (cancelled) return;
@@ -230,7 +249,7 @@ export default function AdminPage() {
         }
         setReady(true);
       });
-    });
+    })();
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       if (!sess) {
         redirectToAdminLogin();
@@ -314,123 +333,86 @@ export default function AdminPage() {
 
   if (!ready) {
     return (
-      <main className="mx-auto max-w-[min(100%,90rem)] min-w-0 px-4 py-16">
-        <p className="text-center text-sm text-zinc-500">Checking session…</p>
-      </main>
+      <AdminMain>
+        <AdminLoading message="Checking session…" />
+      </AdminMain>
     );
   }
 
   if (!sessionEmail) {
     return (
-      <main className="mx-auto max-w-[min(100%,90rem)] min-w-0 px-4 py-16">
-        <p className="text-center text-sm text-zinc-500">Redirecting to sign in…</p>
-      </main>
+      <AdminMain>
+        <AdminLoading message="Redirecting to sign in…" />
+      </AdminMain>
     );
   }
 
   const supabase = createSupabaseBrowserClient();
   if (!supabase) {
     return (
-      <main className="mx-auto max-w-[min(100%,90rem)] min-w-0 px-4 py-16">
-        <p className="text-center text-sm text-red-600">Supabase is not configured.</p>
-      </main>
+      <AdminMain>
+        <AdminAlert variant="error">Supabase is not configured.</AdminAlert>
+      </AdminMain>
     );
   }
 
   return (
-    <main className="mx-auto max-w-[min(100%,90rem)] min-w-0 px-3 py-6 sm:px-4 sm:py-8">
-      <div className="flex flex-col gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Admin dashboard</h1>
-          <p className="mt-1 truncate text-sm text-zinc-500 dark:text-zinc-400">{sessionEmail}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => void logout()}>
+    <AdminMain>
+      <AdminHeader
+        title="Admin dashboard"
+        subtitle={sessionEmail}
+        actions={
+          <Button type="button" variant="outline" size="sm" className="po-admin-btn-outline" onClick={() => void logout()}>
             <LogOut className="h-4 w-4" />
             Sign out
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      {syncMessage ? (
-        <p
-          role={syncMessage.tone === "success" ? "status" : "alert"}
-          aria-live={syncMessage.tone === "success" ? "polite" : "assertive"}
-          className={
-            syncMessage.tone === "success"
-              ? "mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
-              : "mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
-          }
-        >
-          {syncMessage.text}
-        </p>
-      ) : null}
+      {syncMessage ? <AdminAlert variant={syncMessage.tone}>{syncMessage.text}</AdminAlert> : null}
 
-      <div className="mt-6">
-        <StatsBar stats={stats} />
-      </div>
+      <StatsBar stats={stats} />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
-        <TabsList className="flex h-auto w-full flex-col gap-2 rounded-2xl border border-zinc-200/90 bg-white/95 p-2 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/90 sm:flex-row sm:gap-2">
-          <TabsTrigger
-            value="applications"
-            className="group flex flex-1 items-center justify-between gap-3 rounded-xl border border-transparent px-4 py-3 text-left shadow-none transition-colors data-[state=active]:border-violet-200 data-[state=active]:bg-violet-50 data-[state=active]:text-zinc-900 data-[state=inactive]:hover:bg-zinc-50 dark:data-[state=active]:border-violet-500/40 dark:data-[state=active]:bg-violet-950/50 dark:data-[state=active]:text-zinc-50 dark:data-[state=inactive]:hover:bg-zinc-800/80"
-          >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className={adminTabsClass.root}>
+        <TabsList className={adminTabsClass.list}>
+          <TabsTrigger value="applications" className={adminTabsClass.trigger}>
             <span className="flex min-w-0 items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 group-data-[state=active]:bg-violet-100 group-data-[state=active]:text-violet-800 dark:bg-zinc-800 dark:text-zinc-200 dark:group-data-[state=active]:bg-violet-900/60 dark:group-data-[state=active]:text-violet-100">
+              <span className={adminTabsClass.triggerIcon}>
                 <ClipboardList className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-semibold tracking-tight">Applications</span>
-                <span className="mt-0.5 block text-xs font-normal text-zinc-500 group-data-[state=active]:text-violet-700/90 dark:text-zinc-400 dark:group-data-[state=active]:text-violet-200/90">
-                  Review pipeline
-                </span>
+                <span className={adminTabsClass.triggerTitle}>Applications</span>
+                <span className={adminTabsClass.triggerDesc}>Review pipeline</span>
               </span>
             </span>
-            <span className="shrink-0 rounded-full bg-zinc-200/90 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-zinc-800 group-data-[state=active]:bg-white/90 group-data-[state=active]:text-violet-900 dark:bg-zinc-700 dark:text-zinc-100 dark:group-data-[state=active]:bg-violet-900/80 dark:group-data-[state=active]:text-violet-50">
-              {stats?.totalApplications ?? 0}
-            </span>
+            <span className={adminTabsClass.badge}>{stats?.totalApplications ?? 0}</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="jobs"
-            className="group flex flex-1 items-center justify-between gap-3 rounded-xl border border-transparent px-4 py-3 text-left shadow-none transition-colors data-[state=active]:border-violet-200 data-[state=active]:bg-violet-50 data-[state=active]:text-zinc-900 data-[state=inactive]:hover:bg-zinc-50 dark:data-[state=active]:border-violet-500/40 dark:data-[state=active]:bg-violet-950/50 dark:data-[state=active]:text-zinc-50 dark:data-[state=inactive]:hover:bg-zinc-800/80"
-          >
+          <TabsTrigger value="jobs" className={adminTabsClass.trigger}>
             <span className="flex min-w-0 items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 group-data-[state=active]:bg-violet-100 group-data-[state=active]:text-violet-800 dark:bg-zinc-800 dark:text-zinc-200 dark:group-data-[state=active]:bg-violet-900/60 dark:group-data-[state=active]:text-violet-100">
+              <span className={adminTabsClass.triggerIcon}>
                 <Briefcase className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-semibold tracking-tight">Manage jobs</span>
-                <span className="mt-0.5 block text-xs font-normal text-zinc-500 group-data-[state=active]:text-violet-700/90 dark:text-zinc-400 dark:group-data-[state=active]:text-violet-200/90">
-                  Postings and CSV
-                </span>
+                <span className={adminTabsClass.triggerTitle}>Manage jobs</span>
+                <span className={adminTabsClass.triggerDesc}>Postings and CSV</span>
               </span>
             </span>
-            <span className="shrink-0 rounded-full bg-zinc-200/90 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-zinc-800 group-data-[state=active]:bg-white/90 group-data-[state=active]:text-violet-900 dark:bg-zinc-700 dark:text-zinc-100 dark:group-data-[state=active]:bg-violet-900/80 dark:group-data-[state=active]:text-violet-50">
-              {stats?.activeJobs ?? 0}
-            </span>
+            <span className={adminTabsClass.badge}>{stats?.activeJobs ?? 0}</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="talent"
-            className="group flex flex-1 items-center justify-between gap-3 rounded-xl border border-transparent px-4 py-3 text-left shadow-none transition-colors data-[state=active]:border-violet-200 data-[state=active]:bg-violet-50 data-[state=active]:text-zinc-900 data-[state=inactive]:hover:bg-zinc-50 dark:data-[state=active]:border-violet-500/40 dark:data-[state=active]:bg-violet-950/50 dark:data-[state=active]:text-zinc-50 dark:data-[state=inactive]:hover:bg-zinc-800/80"
-          >
+          <TabsTrigger value="talent" className={adminTabsClass.trigger}>
             <span className="flex min-w-0 items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 group-data-[state=active]:bg-violet-100 group-data-[state=active]:text-violet-800 dark:bg-zinc-800 dark:text-zinc-200 dark:group-data-[state=active]:bg-violet-900/60 dark:group-data-[state=active]:text-violet-100">
+              <span className={adminTabsClass.triggerIcon}>
                 <UserPlus className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-semibold tracking-tight">Talent pool</span>
-                <span className="mt-0.5 block text-xs font-normal text-zinc-500 group-data-[state=active]:text-violet-700/90 dark:text-zinc-400 dark:group-data-[state=active]:text-violet-200/90">
-                  No application yet
-                </span>
+                <span className={adminTabsClass.triggerTitle}>Talent pool</span>
+                <span className={adminTabsClass.triggerDesc}>No application yet</span>
               </span>
             </span>
-            <span className="shrink-0 rounded-full bg-zinc-200/90 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-zinc-800 group-data-[state=active]:bg-white/90 group-data-[state=active]:text-violet-900 dark:bg-zinc-700 dark:text-zinc-100 dark:group-data-[state=active]:bg-violet-900/80 dark:group-data-[state=active]:text-violet-50">
-              {stats?.talentPool ?? 0}
-            </span>
+            <span className={adminTabsClass.badge}>{stats?.talentPool ?? 0}</span>
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="applications" className="focus-visible:outline-none">
+        <TabsContent value="applications" className={adminTabsClass.content}>
           <ApplicationsTab
             key={`applications-${syncTick}`}
             supabase={supabase}
@@ -444,10 +426,10 @@ export default function AdminPage() {
             syncingTarget={syncingTarget}
           />
         </TabsContent>
-        <TabsContent value="jobs" className="focus-visible:outline-none">
+        <TabsContent value="jobs" className={adminTabsClass.content}>
           <JobsTab supabase={supabase} onStatsBump={bumpStats} />
         </TabsContent>
-        <TabsContent value="talent" className="focus-visible:outline-none">
+        <TabsContent value="talent" className={adminTabsClass.content}>
           <TalentPoolTab
             key={`talent-${syncTick}`}
             supabase={supabase}
@@ -458,6 +440,6 @@ export default function AdminPage() {
           />
         </TabsContent>
       </Tabs>
-    </main>
+    </AdminMain>
   );
 }

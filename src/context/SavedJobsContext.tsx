@@ -35,6 +35,13 @@ type SavedJobsContextValue = {
 
 const SavedJobsContext = createContext<SavedJobsContextValue | undefined>(undefined);
 
+function isMissingSavedJobsTable(error: { code?: string; message?: string }) {
+  return (
+    error.code === "PGRST205" ||
+    (error.message?.includes("saved_jobs") && error.message?.includes("schema cache"))
+  );
+}
+
 export function SavedJobsProvider({ children }: { children: React.ReactNode }) {
   const { candidate, isAuthenticated } = useCandidate();
   const [savedEntries, setSavedEntries] = useState<SavedJobListEntry[]>([]);
@@ -70,7 +77,9 @@ export function SavedJobsProvider({ children }: { children: React.ReactNode }) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(error);
+      if (!isMissingSavedJobsTable(error)) {
+        console.error(error);
+      }
       setSavedEntries([]);
     } else {
       setSavedEntries((data as SavedJobListEntry[]) ?? []);
@@ -116,6 +125,9 @@ export function SavedJobsProvider({ children }: { children: React.ReactNode }) {
           .eq("candidate_id", candidate.id)
           .eq("job_id", jobId);
         if (error) {
+          if (isMissingSavedJobsTable(error)) {
+            return { ok: false, error: "Saved jobs is not available yet." };
+          }
           return { ok: false, error: error.message };
         }
         setSavedEntries((prev) => prev.filter((e) => e.job_id !== jobId));
@@ -141,6 +153,9 @@ export function SavedJobsProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
+        if (isMissingSavedJobsTable(error)) {
+          return { ok: false, error: "Saved jobs is not available yet." };
+        }
         return { ok: false, error: error.message };
       }
       const row = data as SavedJobListEntry;

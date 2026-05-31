@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  AuthAlert,
+  AuthButton,
+  AuthField,
+  AuthInput,
+} from "@/app/components/auth/AuthUi";
+import { AuthPageShell } from "@/app/components/site/AuthPageShell";
+import { OtpBoxes, OTP_DIGIT_COUNT } from "@/components/OtpBoxes";
 import { useCandidate } from "@/src/context/CandidateContext";
 import {
   clearOtpPendingMobile,
@@ -11,7 +19,6 @@ import {
   setOtpPendingMobile,
   takePostAuthRedirect,
 } from "@/src/lib/authSession";
-import { OtpBoxes, OTP_DIGIT_COUNT } from "@/components/OtpBoxes";
 import { invokeSupabaseFunction } from "@/src/lib/edgeFunctions";
 import { useRealtimeOtp } from "@/src/lib/realtimeOtp";
 import type { CandidateRow } from "@/types/database.types";
@@ -136,119 +143,78 @@ export default function LoginPage() {
   }, []);
 
   return (
-    <main className="relative flex flex-1 flex-col px-4 pb-20 pt-24 sm:px-6 lg:pt-28">
-      <div className="mx-auto w-full max-w-xl flex-1">
-        <div className="rounded-[1.75rem] border border-[var(--color-po-lavender-deep)] bg-white/90 p-6 shadow-[0_12px_48px_rgba(30,27,54,0.06)] sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-po-muted)]">
-            Candidate login
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--color-po-navy)]">
-            Sign in with mobile OTP
-          </h1>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--color-po-muted)]">
-            Enter the mobile number you used to register. We&apos;ll send a one-time code by SMS.
-          </p>
+    <AuthPageShell
+      authMode="login"
+      title="Sign in"
+      subtitle="Use the mobile number from your registration. We’ll text you a one-time code."
+    >
+      {error ? <AuthAlert variant="error">{error}</AuthAlert> : null}
 
-          {error ? (
-            <p
-              className="mt-4 rounded-2xl border border-[var(--color-po-coral)]/35 bg-[var(--color-po-lavender)] px-4 py-3 text-sm text-[var(--color-po-navy)]"
-              role="alert"
-              aria-live="assertive"
-            >
-              {error}
-            </p>
-          ) : null}
-
-          {notRegistered ? (
-            <div className="mt-6 rounded-2xl border border-[var(--color-po-gold)]/40 bg-[var(--color-po-lavender)] px-4 py-4 text-sm text-[var(--color-po-navy)]">
-              <p className="font-semibold">Not registered.</p>
-              <p className="mt-1 text-[var(--color-po-muted)]">No profile exists for this number yet.</p>
-              <Link
-                href="/register"
-                className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
-              >
-                Create an account
-              </Link>
-              <button
-                type="button"
-                onClick={tryDifferentNumber}
-                className="mt-3 flex min-h-11 w-full items-center justify-center rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/35 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
-              >
-                Try a different number
-              </button>
-            </div>
-          ) : null}
-
-          {!notRegistered ? (
-            <div className="mt-8 space-y-4">
-              <label className="block text-sm font-semibold text-[var(--color-po-navy)]" htmlFor="login-mobile">
-                Mobile number
-                <input
-                  id="login-mobile"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                  inputMode="tel"
-                  autoComplete="tel"
-                  className="mt-2 w-full rounded-2xl border border-[var(--color-po-lavender-deep)] bg-white px-4 py-3 text-sm text-[var(--color-po-navy)] outline-none ring-[var(--color-po-violet)]/25 focus:ring-4"
-                  placeholder="+91 98765 43210"
-                />
-              </label>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                {!otpSentOnce ? (
-                  <button
-                    type="button"
-                    disabled={!canSendOtp || busy || resendIn > 0}
-                    onClick={sendOtp}
-                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-[var(--color-po-navy)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white"
-                  >
-                    {busy ? "Sending…" : resendIn > 0 ? `Retry in ${resendIn}s` : "Send OTP"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy || resendIn > 0}
-                    onClick={sendOtp}
-                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-[var(--color-po-lavender-deep)] bg-white px-6 py-3 text-sm font-semibold text-[var(--color-po-navy)] transition-colors hover:border-[var(--color-po-violet)]/35 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {resendIn > 0 ? `Resend OTP (${resendIn}s)` : "Resend OTP"}
-                  </button>
-                )}
-              </div>
-
-              {otpSentOnce ? (
-                <div>
-                  <p id="login-otp-heading" className="text-sm font-semibold text-[var(--color-po-navy)]">
-                    Enter OTP
-                  </p>
-                  <OtpBoxes value={otp} onChange={setOtp} disabled={busy} labelledBy="login-otp-heading" />
-                </div>
-              ) : null}
-
-              {otpSentOnce ? (
-                <button
-                  type="button"
-                  disabled={!canVerify}
-                  onClick={verifyAndLogin}
-                  className="min-h-11 w-full rounded-full bg-[var(--color-po-teal)] px-6 py-3 text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {busy ? "Signing in…" : "Verify & sign in"}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-          <p className="mt-8 text-center text-sm text-[var(--color-po-muted)]">
-            New here?{" "}
-            <Link
-              className="font-semibold text-[var(--color-po-violet)] underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-po-violet"
-              href="/register"
-            >
-              Register
+      {notRegistered ? (
+        <div className="po-auth-panel">
+          <p className="po-auth-panel__title">No account found</p>
+          <p className="po-auth-panel__text">We don’t have a profile for this number yet.</p>
+          <div className="po-auth-actions">
+            <Link href="/register" className="po-auth-btn po-auth-btn--primary po-auth-btn--link">
+              Create an account
             </Link>
-          </p>
+            <AuthButton variant="secondary" onClick={tryDifferentNumber}>
+              Try a different number
+            </AuthButton>
+          </div>
         </div>
-      </div>
-    </main>
+      ) : null}
+
+      {!notRegistered ? (
+        <div className="po-auth-stack">
+          <AuthField label="Mobile number" htmlFor="login-mobile" required>
+            <AuthInput
+              id="login-mobile"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value)}
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="e.g. +91 98765 43210"
+              required
+            />
+          </AuthField>
+
+          <div className="po-auth-actions po-auth-actions--split">
+            {!otpSentOnce ? (
+              <AuthButton
+                variant="primary"
+                disabled={!canSendOtp || busy || resendIn > 0}
+                onClick={sendOtp}
+                className="po-auth-btn--grow"
+              >
+                {busy ? "Sending…" : resendIn > 0 ? `Retry in ${resendIn}s` : "Send OTP"}
+              </AuthButton>
+            ) : (
+              <AuthButton
+                variant="secondary"
+                disabled={busy || resendIn > 0}
+                onClick={sendOtp}
+                className="po-auth-btn--grow"
+              >
+                {resendIn > 0 ? `Resend OTP (${resendIn}s)` : "Resend OTP"}
+              </AuthButton>
+            )}
+          </div>
+
+          {otpSentOnce ? (
+            <div className="po-auth-otp-block">
+              <p id="login-otp-heading" className="po-auth-otp-label">
+                Enter the {OTP_DIGIT_COUNT}-digit code
+              </p>
+              <p className="po-auth-otp-hint">Sent to {normalizeMobile(mobile)}</p>
+              <OtpBoxes value={otp} onChange={setOtp} disabled={busy} labelledBy="login-otp-heading" />
+              <AuthButton variant="accent" disabled={!canVerify} onClick={verifyAndLogin} className="po-auth-btn--block">
+                {busy ? "Signing in…" : "Verify & sign in"}
+              </AuthButton>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </AuthPageShell>
   );
 }
