@@ -5,35 +5,18 @@ import { SiteScripts } from "./components/site/SiteScripts";
 import { SiteStyles } from "./components/site/SiteStyles";
 import { AppProviders } from "./providers";
 import { SITE_ICONS, SITE_MANIFEST } from "@/src/lib/siteIcons";
-import { getSiteUrl } from "@/src/lib/siteUrl";
+import { rootSiteMetadata } from "@/src/lib/seo";
 import "./globals.css";
 import "./site-overrides.css";
 
 export const metadata: Metadata = {
-  title: "PharmaOpenings — Pharmaceutical careers & job search",
-  description:
-    "Global opportunities for pharma sector employees—active openings and hiring teams across research, manufacturing, and commercial functions.",
-  metadataBase: new URL(getSiteUrl()),
+  ...rootSiteMetadata(),
   icons: SITE_ICONS,
   manifest: SITE_MANIFEST,
   appleWebApp: {
     capable: true,
     title: "PharmaOpenings",
     statusBarStyle: "default",
-  },
-  openGraph: {
-    title: "PharmaOpenings — Pharmaceutical careers & job search",
-    description:
-      "Global opportunities for pharma sector employees—curated pharmaceutical roles worldwide.",
-    url: "/",
-    siteName: "PharmaOpenings",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "PharmaOpenings — Pharmaceutical careers & job search",
-    description:
-      "Global opportunities for pharma sector employees—curated pharmaceutical roles worldwide.",
   },
 };
 

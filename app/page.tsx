@@ -1,14 +1,9 @@
-import type { Metadata } from "next";
-
 import { HomePage } from "./components/site";
+import { JsonLd } from "./components/site/JsonLd";
 import { fetchRecentActiveJobs, HOME_PAGE_JOBS_LIMIT } from "@/src/lib/jobs";
+import { organizationJsonLd, websiteJsonLd } from "@/src/lib/seo";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = {
-  title: "PharmaOpenings — Pharmaceutical careers & job search",
-  description:
-    "Global opportunities for pharma sector employees—active openings and hiring teams across research, manufacturing, and commercial functions.",
-};
 
 export default async function Home() {
   const { data, error } = await fetchRecentActiveJobs(HOME_PAGE_JOBS_LIMIT);
@@ -17,5 +12,10 @@ export default async function Home() {
   );
   const homeJobsLoadError = Boolean(error);
 
-  return <HomePage homeJobs={homeJobs} homeJobsLoadError={homeJobsLoadError} />;
+  return (
+    <>
+      <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
+      <HomePage homeJobs={homeJobs} homeJobsLoadError={homeJobsLoadError} />
+    </>
+  );
 }

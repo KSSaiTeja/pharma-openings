@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Login | PharmaOpenings",
-  description: "Sign in with mobile OTP to access your PharmaOpenings candidate account.",
-};
+import { buildPageMetadata, pageTitle } from "@/src/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: pageTitle("Sign in"),
+  description:
+    "Sign in to PharmaOpenings with mobile OTP to apply for pharmaceutical jobs and manage your candidate profile.",
+  path: "/login",
+  noIndex: true,
+});
 
 export default function LoginLayout({
   children,

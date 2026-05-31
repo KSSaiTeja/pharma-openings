@@ -71,7 +71,7 @@ export function HomePage({ homeJobs, homeJobsLoadError }: HomePageProps) {
         </div>
         <div className="auto-container">
           <div className="content-box">
-            <h2>Global opportunities for pharma sector employees</h2>
+            <h1>Global opportunities for pharma sector employees</h1>
             <p>
               Explore curated roles from leading pharmaceutical employers—whether you are
               advancing your career or taking your first step into regulated industries.

@@ -18,19 +18,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: absoluteUrl("/jobs"),
       lastModified: now,
       changeFrequency: "hourly",
-      priority: 0.9,
-    },
-    {
-      url: absoluteUrl("/login"),
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.5,
+      priority: 0.95,
     },
     {
       url: absoluteUrl("/register"),
       lastModified: now,
       changeFrequency: "monthly",
-      priority: 0.6,
+      priority: 0.4,
     },
   ];
 
@@ -40,7 +34,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: absoluteUrl(`/jobs/${job.id}`),
       lastModified: new Date(job.created_at),
       changeFrequency: "daily" as const,
-      priority: 0.8,
+      priority: 0.85,
     })) ?? [];
 
   return [...baseRoutes, ...jobRoutes];

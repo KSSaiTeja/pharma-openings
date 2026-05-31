@@ -9,6 +9,7 @@ import {
   getPagination,
   parseJobsFilterState,
 } from "@/src/lib/jobFilters";
+import { buildPageMetadata, pageTitle } from "@/src/lib/seo";
 import { JobsEmptyState } from "./JobsEmptyState";
 import { JobsFiltersForm } from "./JobsFiltersForm";
 import { JobsPageToolbar } from "./JobsPageToolbar";
@@ -17,11 +18,20 @@ import { JobsPagination } from "./JobsPagination";
 import type { JobRow } from "@/types/database.types";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = {
-  title: "Jobs | PharmaOpenings",
+
+export const metadata: Metadata = buildPageMetadata({
+  title: pageTitle("Pharma Jobs & Openings"),
   description:
-    "Browse active pharmaceutical jobs by department, location, and role type on PharmaOpenings.",
-};
+    "Search pharmaceutical jobs and pharma openings across India. Filter by department, location, and role type — QA, QC, production, R&D, regulatory, and clinical.",
+  path: "/jobs",
+  keywords: [
+    "pharma jobs",
+    "pharmaceutical openings",
+    "pharma vacancies India",
+    "pharmaceutical job listings",
+    "life sciences careers",
+  ],
+});
 
 type JobsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -63,10 +73,11 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
               <span aria-current="page">Jobs</span>
             </nav>
             <h1 id="jobs-page-heading" className="po-jobs-page__title">
-              Find your next pharma role
+              Pharmaceutical jobs &amp; pharma openings
             </h1>
             <p className="po-jobs-page__lead">
-              Browse open roles and refine results with the filters on the left.
+              Browse active pharma vacancies and refine results with filters for department,
+              location, and role type.
             </p>
           </header>
 

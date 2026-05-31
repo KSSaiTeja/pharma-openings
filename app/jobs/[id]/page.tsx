@@ -4,10 +4,11 @@ import type { Metadata } from "next";
 
 import { JobApplyLink } from "@/app/components/JobApplyLink";
 import { JobSaveButton } from "@/app/components/JobSaveButton";
+import { JsonLd } from "@/app/components/site/JsonLd";
 import { PageTitleBanner } from "@/app/components/site/PageTitleBanner";
 import { getJobReference } from "@/src/lib/jobReference";
 import { fetchJobById } from "@/src/lib/jobs";
-import { absoluteUrl } from "@/src/lib/siteUrl";
+import { buildPageMetadata, jobPostingJsonLd, pageTitle } from "@/src/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -26,28 +27,33 @@ type JobDetailPageProps = {
 export async function generateMetadata({ params }: JobDetailPageProps): Promise<Metadata> {
   const { id } = await params;
   const { data: job, error } = await fetchJobById(id);
-  const url = absoluteUrl(`/jobs/${id}`);
   if (error || !job) {
-    return {
-      title: "Job not found | PharmaOpenings",
-      robots: { index: false, follow: false },
-    };
+    return buildPageMetadata({
+      title: pageTitle("Job not found"),
+      description: "This pharmaceutical job posting is no longer available on PharmaOpenings.",
+      path: `/jobs/${id}`,
+      noIndex: true,
+    });
   }
 
-  const description = job.description.slice(0, 160);
-  const title = job.is_active ? `${job.title} | PharmaOpenings` : `${job.title} (Inactive) | PharmaOpenings`;
+  const description = `${job.title} in ${job.location}. ${job.description.slice(0, 140).trim()}…`;
+  const title = job.is_active
+    ? pageTitle(`${job.title} — ${job.location}`)
+    : pageTitle(`${job.title} (Inactive)`);
 
-  return {
+  return buildPageMetadata({
     title,
     description,
-    alternates: { canonical: url },
-    openGraph: {
-      title,
-      description,
-      url,
-      type: "article",
-    },
-  };
+    path: `/jobs/${id}`,
+    noIndex: !job.is_active,
+    ogType: "article",
+    keywords: [
+      job.title,
+      `${job.location} pharma jobs`,
+      job.department ?? "pharmaceutical jobs",
+      "pharma openings",
+    ].filter(Boolean),
+  });
 }
 
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
@@ -77,38 +83,9 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     notFound();
   }
 
-  const jobPostingLd = {
-    "@context": "https://schema.org",
-    "@type": "JobPosting",
-    title: job.title,
-    description: job.description,
-    datePosted: new Date(job.created_at).toISOString(),
-    employmentType: job.type ?? "FULL_TIME",
-    hiringOrganization: {
-      "@type": "Organization",
-      name: "PharmaOpenings",
-    },
-    jobLocation: {
-      "@type": "Place",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: job.location,
-        addressCountry: "IN",
-      },
-    },
-    url: absoluteUrl(`/jobs/${job.id}`),
-    industry: job.department ?? undefined,
-    qualifications: job.qualification_needed ?? undefined,
-  };
-
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jobPostingLd).replaceAll("<", "\\u003c"),
-        }}
-      />
+      <JsonLd data={jobPostingJsonLd(job)} />
       <PageTitleBanner title={job.title} crumbs={[{ label: "Home", href: "/" }, { label: "Jobs", href: "/jobs" }, { label: job.title }]} />
       <section className="job-details pt_110 pb_120">
         <div className="auto-container">
