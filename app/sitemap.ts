@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { fetchPublishedBlogPosts } from "@/src/lib/blog";
 import { fetchActiveJobSitemapRows } from "@/src/lib/jobs";
 import { absoluteUrl } from "@/src/lib/siteUrl";
 
@@ -26,7 +27,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.4,
     },
+    {
+      url: absoluteUrl("/blog"),
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.75,
+    },
+    {
+      url: absoluteUrl("/contact"),
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
   ];
+
+  const posts = await fetchPublishedBlogPosts();
+  const blogRoutes =
+    posts.map((post) => ({
+      url: absoluteUrl(`/blog/${post.slug}`),
+      lastModified: new Date(post.publishedAt),
+      changeFrequency: "monthly" as const,
+      priority: 0.65,
+    })) ?? [];
 
   const { data } = await fetchActiveJobSitemapRows();
   const jobRoutes =
@@ -37,5 +59,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.85,
     })) ?? [];
 
-  return [...baseRoutes, ...jobRoutes];
+  return [...baseRoutes, ...blogRoutes, ...jobRoutes];
 }

@@ -1,27 +1,23 @@
 "use client";
 
-import { Briefcase, ClipboardList, LogOut, UserPlus } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Briefcase, ClipboardList, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { startOfLocalDay } from "@/app/admin/admin-constants";
-import { clearAdminReturn, setAdminReturn } from "@/app/admin/lib/authGate";
 import {
   AdminAlert,
   AdminHeader,
-  AdminLoading,
-  AdminMain,
   adminTabsClass,
 } from "@/app/admin/components/AdminUi";
+import { useAdminSupabase } from "@/app/admin/components/AdminAuthGate";
 import { ApplicationsTab } from "@/app/admin/components/ApplicationsTab";
 import { JobsTab } from "@/app/admin/components/JobsTab";
 import type { AdminStats } from "@/app/admin/components/StatsBar";
 import { StatsBar } from "@/app/admin/components/StatsBar";
 import { TalentPoolTab } from "@/app/admin/components/TalentPoolTab";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { invokeSupabaseFunction } from "@/src/lib/edgeFunctions";
-import { clearInvalidAdminSession, createSupabaseBrowserClient } from "@/src/lib/supabase";
+
 const SYNC_TIMEOUT_MS = 35_000;
 const ADMIN_TAB_KEY = "po_admin_active_tab";
 
@@ -39,10 +35,8 @@ type SyncToSheetsResponse = {
   error?: string;
 };
 
-export default function AdminPage() {
-  const router = useRouter();
-  const [ready, setReady] = useState(false);
-  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+export default function AdminDashboardPage() {
+  const supabase = useAdminSupabase();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsTick, setStatsTick] = useState(0);
   const [syncTick, setSyncTick] = useState(0);
@@ -52,14 +46,6 @@ export default function AdminPage() {
     tone: "success" | "error";
     text: string;
   } | null>(null);
-
-  const redirectToAdminLogin = useCallback(() => {
-    if (typeof window !== "undefined") {
-      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      setAdminReturn(returnPath);
-    }
-    router.replace("/admin/login");
-  }, [router]);
 
   const bumpStats = useCallback(() => {
     setStatsTick((n) => n + 1);
@@ -108,7 +94,7 @@ export default function AdminPage() {
       scope: "applications" | "talent_pool",
       payload: { applicationIds?: string[]; candidateIds?: string[]; page: number },
     ) => {
-      if (syncingTarget !== null) return;
+      if (syncingTarget !== null || !supabase) return;
       setSyncMessage(null);
 
       const ids =
@@ -127,12 +113,6 @@ export default function AdminPage() {
       setSyncingTarget(scope);
 
       try {
-        const supabase = createSupabaseBrowserClient();
-        if (!supabase) {
-          setSyncMessage({ tone: "error", text: "Supabase is not configured." });
-          return;
-        }
-
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -212,7 +192,7 @@ export default function AdminPage() {
         setSyncingTarget(null);
       }
     },
-    [bumpStats, resolveSyncErrorMessage, syncingTarget],
+    [bumpStats, resolveSyncErrorMessage, supabase, syncingTarget],
   );
 
   useEffect(() => {
@@ -229,44 +209,7 @@ export default function AdminPage() {
   }, [activeTab]);
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase) {
-      queueMicrotask(() => setReady(true));
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      await clearInvalidAdminSession(supabase);
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
-      queueMicrotask(() => {
-        if (cancelled) return;
-        if (!data.session) {
-          redirectToAdminLogin();
-        } else {
-          clearAdminReturn();
-          setSessionEmail(data.session.user.email ?? null);
-        }
-        setReady(true);
-      });
-    })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
-      if (!sess) {
-        redirectToAdminLogin();
-        return;
-      }
-      clearAdminReturn();
-      setSessionEmail(sess.user.email ?? null);
-    });
-    return () => {
-      cancelled = true;
-      sub.subscription.unsubscribe();
-    };
-  }, [redirectToAdminLogin]);
-
-  useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase || !sessionEmail) return;
+    if (!supabase) return;
     let cancelled = false;
     const run = async () => {
       const todayStart = startOfLocalDay().toISOString();
@@ -275,17 +218,17 @@ export default function AdminPage() {
 
       try {
         const [appTotal, jobsActive, newToday, shortlisted, appWeek, talentRpc] = await Promise.all([
-          supabase.from("applications").select("*", { count: "exact", head: true }),
-          supabase.from("jobs").select("*", { count: "exact", head: true }).eq("is_active", true),
-          supabase
-            .from("applications")
-            .select("*", { count: "exact", head: true })
-            .gte("created_at", todayStart)
-            .lt("created_at", tomorrowStart),
-          supabase.from("applications").select("*", { count: "exact", head: true }).ilike("status", "shortlisted"),
-          supabase.from("applications").select("*", { count: "exact", head: true }).gte("created_at", weekAgo),
-          supabase.rpc("count_talent_pool_candidates"),
-        ]);
+            supabase.from("applications").select("*", { count: "exact", head: true }),
+            supabase.from("jobs").select("*", { count: "exact", head: true }).eq("is_active", true),
+            supabase
+              .from("applications")
+              .select("*", { count: "exact", head: true })
+              .gte("created_at", todayStart)
+              .lt("created_at", tomorrowStart),
+            supabase.from("applications").select("*", { count: "exact", head: true }).ilike("status", "shortlisted"),
+            supabase.from("applications").select("*", { count: "exact", head: true }).gte("created_at", weekAgo),
+            supabase.rpc("count_talent_pool_candidates"),
+          ]);
 
         if (cancelled) return;
 
@@ -322,52 +265,15 @@ export default function AdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionEmail, statsTick]);
+  }, [supabase, statsTick]);
 
-  const logout = async () => {
-    clearAdminReturn();
-    const supabase = createSupabaseBrowserClient();
-    if (supabase) await supabase.auth.signOut();
-    router.replace("/admin/login");
-  };
-
-  if (!ready) {
-    return (
-      <AdminMain>
-        <AdminLoading message="Checking session…" />
-      </AdminMain>
-    );
-  }
-
-  if (!sessionEmail) {
-    return (
-      <AdminMain>
-        <AdminLoading message="Redirecting to sign in…" />
-      </AdminMain>
-    );
-  }
-
-  const supabase = createSupabaseBrowserClient();
   if (!supabase) {
-    return (
-      <AdminMain>
-        <AdminAlert variant="error">Supabase is not configured.</AdminAlert>
-      </AdminMain>
-    );
+    return <AdminAlert variant="error">Supabase is not configured.</AdminAlert>;
   }
 
   return (
-    <AdminMain>
-      <AdminHeader
-        title="Admin dashboard"
-        subtitle={sessionEmail}
-        actions={
-          <Button type="button" variant="outline" size="sm" className="po-admin-btn-outline" onClick={() => void logout()}>
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </Button>
-        }
-      />
+    <>
+      <AdminHeader title="Admin dashboard" subtitle="Applications, jobs, and talent pool" showLogo={false} />
 
       {syncMessage ? <AdminAlert variant={syncMessage.tone}>{syncMessage.text}</AdminAlert> : null}
 
@@ -440,6 +346,6 @@ export default function AdminPage() {
           />
         </TabsContent>
       </Tabs>
-    </AdminMain>
+    </>
   );
 }

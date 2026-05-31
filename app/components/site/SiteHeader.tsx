@@ -12,7 +12,7 @@ import { NAV_SECTIONS } from "./navConfig";
 import { SiteNavLink } from "./SiteNavLink";
 import { UserAvatar } from "./UserAvatar";
 import { siteAsset } from "./paths";
-import { useActiveNavSection } from "./useActiveNavSection";
+import { useNavActiveId } from "./useActiveNavSection";
 
 function HeaderNav({
   activeId,
@@ -112,7 +112,7 @@ export function SiteHeader() {
     return () => window.removeEventListener("keydown", onKey);
   }, [closeMobile]);
 
-  const activeId = useActiveNavSection();
+  const activeId = useNavActiveId();
 
   return (
     <>

@@ -15,8 +15,6 @@ const nextConfig: NextConfig = {
       { source: "/companies", destination: "/jobs", permanent: true },
       { source: "/browse-companies", destination: "/jobs", permanent: true },
       { source: "/company/:path*", destination: "/jobs", permanent: true },
-      { source: "/blog", destination: "/", permanent: true },
-      { source: "/blog/:path*", destination: "/", permanent: true },
       { source: "/news", destination: "/", permanent: true },
       { source: "/news/:path*", destination: "/", permanent: true },
       { source: "/posts/:path*", destination: "/", permanent: true },

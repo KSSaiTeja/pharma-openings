@@ -1,7 +1,10 @@
 import Link from "next/link";
 
 import { CONTACT_SECTION } from "@/app/content/site";
+import { COVERAGE_AREAS } from "@/app/content/home";
 import { JobListByFitScore } from "../JobListByFitScore";
+import { CoverageAreaIcon } from "./CoverageAreaIcon";
+import { HomeAboutIntro, HomeVisionMissionSection, HomeWhyChooseSection } from "./HomeAboutSection";
 import { siteAsset } from "../paths";
 
 import type { JobRow } from "@/types/database.types";
@@ -14,28 +17,6 @@ const HERO_AUTHORS = [
   { id: "author-5", label: "Mfg", image: "images/resource/hero-author-5.jpg", size: 90 },
   { id: "author-6", label: "Medical", image: "images/resource/hero-author-6.jpg", size: 140 },
 ] as const;
-
-const PHARMA_SLIDE = [
-  "Research & development",
-  "Clinical operations",
-  "Regulatory affairs",
-  "Quality & GMP",
-  "Manufacturing",
-  "Medical affairs",
-  "Commercial",
-  "Pharmacovigilance",
-];
-
-const INDUSTRIES = [
-  { icon: "icon-9", title: "R&D", count: "Discovery" },
-  { icon: "icon-10", title: "Clinical", count: "Trials" },
-  { icon: "icon-11", title: "Regulatory", count: "Submissions" },
-  { icon: "icon-12", title: "Quality", count: "GMP" },
-  { icon: "icon-13", title: "Manufacturing", count: "Production" },
-  { icon: "icon-14", title: "Medical", count: "Affairs" },
-  { icon: "icon-15", title: "Commercial", count: "Launch" },
-  { icon: "icon-16", title: "PV", count: "Safety" },
-];
 
 type HomePageProps = {
   homeJobs: JobRow[];
@@ -101,154 +82,20 @@ export function HomePage({ homeJobs, homeJobsLoadError }: HomePageProps) {
         </div>
       </section>
 
-      <section id="about" className="about-section pt_120 pb_120 scroll-mt-24">
-        <div className="auto-container">
-          <div className="row align-items-center">
-            <div className="col-lg-6 col-md-12 col-sm-12 video-column">
-              <div className="po-about-visual">
-                <div className="po-about-visual__accent po-about-visual__accent--tl">
-                  <img
-                    src={siteAsset("images/resource/about-accent-1.jpg")}
-                    alt=""
-                    width={140}
-                    height={100}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <span className="po-about-visual__tag">Research</span>
-                </div>
-                <div className="po-about-visual__accent po-about-visual__accent--br">
-                  <img
-                    src={siteAsset("images/resource/about-accent-2.jpg")}
-                    alt=""
-                    width={140}
-                    height={100}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <span className="po-about-visual__tag">Quality</span>
-                </div>
-                <figure className="po-about-visual__main">
-                  <img
-                    src={siteAsset("images/resource/video-1.jpg")}
-                    alt="Pharmaceutical research and development professionals"
-                    width={520}
-                    height={400}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </figure>
-              </div>
-            </div>
-            <div className="col-lg-6 col-md-12 col-sm-12 content-column">
-              <div className="content_block_one">
-                <div className="content-box ml_80">
-                  <div className="sec-title pb_20 sec-title-animation animation-style2">
-                    <span className="sub-title mb_10 title-animation">About us</span>
-                    <h2 className="title-animation">
-                      A focused platform for <span>pharmaceutical talent</span>
-                    </h2>
-                  </div>
-                  <div className="text-box">
-                    <p>
-                      PharmaOpenings connects exceptional people with organizations advancing
-                      therapies and standards of care—from discovery labs to commercial launch.
-                    </p>
-                    <ul className="list-style-one clearfix">
-                      <li>Curated roles across research, clinical, regulatory, and commercial</li>
-                      <li>Profiles built for compliance-ready hiring in regulated industries</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HomeAboutIntro />
 
-      <div className="slide-text">
+      <div className="slide-text po-areas-ribbon">
         <div className="text-inner">
           <ul className="text-list">
-            {[...PHARMA_SLIDE, ...PHARMA_SLIDE, ...PHARMA_SLIDE].map((label, i) => (
+            {[...COVERAGE_AREAS, ...COVERAGE_AREAS, ...COVERAGE_AREAS].map((label, i) => (
               <li key={`${label}-${i}`}>{label}</li>
             ))}
           </ul>
         </div>
       </div>
 
-      <section className="chooseus-section pt_200 pb_90">
-        <div
-          className="pattern-layer"
-          style={{ backgroundImage: `url(${siteAsset("images/shape/shape-2.png")})` }}
-        />
-        <div className="auto-container">
-          <div className="sec-title centred pb_60 sec-title-animation animation-style2">
-            <span className="sub-title mb_10 title-animation">Why us</span>
-            <h2 className="title-animation">Why choose PharmaOpenings</h2>
-          </div>
-          <div className="inner-container">
-            <div className="row clearfix">
-              <div className="col-lg-4 col-md-6 col-sm-12 chooseus-block">
-                <div className="chooseus-block-one">
-                  <div className="inner-box">
-                    <div className="icon-box">
-                      <i className="icon-4" />
-                    </div>
-                    <h3>
-                      <Link href="/jobs">Curated opportunities</Link>
-                    </h3>
-                    <p>Roles refreshed for relevance across therapeutic and functional areas.</p>
-                    <div className="link">
-                      <Link href="/jobs">
-                        Browse jobs
-                        <i className="icon-7" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="col-lg-4 col-md-6 col-sm-12 chooseus-block">
-                <div className="chooseus-block-one">
-                  <div className="inner-box">
-                    <div className="icon-box">
-                      <i className="icon-5" />
-                    </div>
-                    <h3>
-                      <Link href="/register">Compliance-ready profiles</Link>
-                    </h3>
-                    <p>Education, experience, and documents organized the way pharma teams expect.</p>
-                    <div className="link">
-                      <Link href="/register">
-                        Get started
-                        <i className="icon-7" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="col-lg-4 col-md-6 col-sm-12 chooseus-block">
-                <div className="chooseus-block-one">
-                  <div className="inner-box">
-                    <div className="icon-box">
-                      <i className="icon-6" />
-                    </div>
-                    <h3>
-                      <Link href="/login">Simple applications</Link>
-                    </h3>
-                    <p>Sign in with mobile OTP and apply in a clear, structured flow.</p>
-                    <div className="link">
-                      <Link href="/login">
-                        Sign in
-                        <i className="icon-7" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HomeWhyChooseSection />
+      <HomeVisionMissionSection />
 
       <section className="category-section centred pt_120 pb_70">
         <div className="bg-box">
@@ -276,7 +123,7 @@ export function HomePage({ homeJobs, homeJobsLoadError }: HomePageProps) {
                     regulated hiring.
                   </p>
                   <Link href="/jobs" className="theme-btn btn-one">
-                    Find work
+                    Find Opportunities
                   </Link>
                   <figure className="image-box image-hov-one">
                     <img src={siteAsset("images/resource/category-1.jpg")} alt="" />
@@ -304,23 +151,22 @@ export function HomePage({ homeJobs, homeJobsLoadError }: HomePageProps) {
         </div>
       </section>
 
-      <section className="industries-section pt_20 pb_120">
+      <section className="industries-section po-areas-grid pt_20 pb_120">
         <div className="auto-container">
           <div className="sec-title centred pb_60 sec-title-animation animation-style2">
             <span className="sub-title mb_10 title-animation">Functions</span>
             <h2 className="title-animation">Areas we cover</h2>
           </div>
-          <div className="inner-container clearfix">
-            {INDUSTRIES.map((item) => (
-              <div key={item.title} className="industries-block-one">
+          <div className="inner-container po-areas-grid__inner">
+            {COVERAGE_AREAS.map((title) => (
+              <div key={title} className="industries-block-one">
                 <div className="inner-box">
                   <div className="icon-box">
-                    <i className={item.icon} />
+                    <CoverageAreaIcon area={title} />
                   </div>
                   <h3>
-                    <Link href="/jobs">{item.title}</Link>
+                    <Link href="/jobs">{title}</Link>
                   </h3>
-                  <p>{item.count}</p>
                 </div>
               </div>
             ))}
@@ -437,7 +283,6 @@ export function HomePage({ homeJobs, homeJobsLoadError }: HomePageProps) {
                 {CONTACT_SECTION.email}
               </a>
             </div>
-            <p className="mt_20">{CONTACT_SECTION.footnote}</p>
           </div>
         </div>
       </section>

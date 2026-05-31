@@ -46,6 +46,54 @@ export type Database = {
           },
         ]
       }
+      blog_posts: {
+        Row: {
+          author: string
+          category: string
+          content: Json
+          created_at: string
+          excerpt: string
+          id: string
+          image: string
+          published_at: string | null
+          slug: string
+          status: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author?: string
+          category: string
+          content?: Json
+          created_at?: string
+          excerpt: string
+          id?: string
+          image?: string
+          published_at?: string | null
+          slug: string
+          status?: string
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author?: string
+          category?: string
+          content?: Json
+          created_at?: string
+          excerpt?: string
+          id?: string
+          image?: string
+          published_at?: string | null
+          slug?: string
+          status?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       applications: {
         Row: {
           candidate_id: string | null
@@ -319,6 +367,56 @@ export type Database = {
           },
         ]
       }
+      site_page_views: {
+        Row: {
+          id: number
+          path: string
+          viewed_at: string
+          visitor_key: string
+        }
+        Insert: {
+          id?: never
+          path: string
+          viewed_at?: string
+          visitor_key: string
+        }
+        Update: {
+          id?: never
+          path?: string
+          viewed_at?: string
+          visitor_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_page_views_visitor_key_fkey"
+            columns: ["visitor_key"]
+            isOneToOne: false
+            referencedRelation: "site_visitors"
+            referencedColumns: ["visitor_key"]
+          },
+        ]
+      }
+      site_visitors: {
+        Row: {
+          first_seen_at: string
+          last_seen_at: string
+          visit_count: number
+          visitor_key: string
+        }
+        Insert: {
+          first_seen_at?: string
+          last_seen_at?: string
+          visit_count?: number
+          visitor_key: string
+        }
+        Update: {
+          first_seen_at?: string
+          last_seen_at?: string
+          visit_count?: number
+          visitor_key?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -326,7 +424,12 @@ export type Database = {
     Functions: {
       active_job_filter_facets: { Args: Record<PropertyKey, never>; Returns: Json }
       count_talent_pool_candidates: { Args: Record<PropertyKey, never>; Returns: string }
+      get_site_analytics_stats: { Args: Record<PropertyKey, never>; Returns: Json }
       po_request_mobile_header: { Args: never; Returns: string }
+      record_site_page_view: {
+        Args: { p_path: string; p_visitor_key: string }
+        Returns: undefined
+      }
       talent_pool_candidates_page: {
         Args: {
           p_limit: number

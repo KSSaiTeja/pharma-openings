@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { SiteShell } from "./components/site/SiteShell";
 import { SiteScripts } from "./components/site/SiteScripts";
 import { SiteStyles } from "./components/site/SiteStyles";
+import { WhatsAppWidget } from "./components/site/WhatsAppWidget";
 import { AppProviders } from "./providers";
 import { SITE_ICONS, SITE_MANIFEST } from "@/src/lib/siteIcons";
 import { rootSiteMetadata } from "@/src/lib/seo";
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body>
         <AppProviders>
           <SiteShell>{children}</SiteShell>
+          <WhatsAppWidget />
         </AppProviders>
         <SiteScripts />
       </body>

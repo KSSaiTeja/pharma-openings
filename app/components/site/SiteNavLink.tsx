@@ -16,12 +16,14 @@ type SiteNavLinkProps = {
 export function SiteNavLink({ href, label, isActive, className = "", onNavigate }: SiteNavLinkProps) {
   const pathname = usePathname();
   const sectionId = sectionIdFromHref(href);
+  const classNames = `po-nav-link${isActive ? " is-active" : ""}${className ? ` ${className}` : ""}`;
 
   return (
     <Link
       href={href}
-      className={`po-nav-link${isActive ? " is-active" : ""}${className ? ` ${className}` : ""}`}
-      aria-current={isActive ? "true" : undefined}
+      className={classNames}
+      aria-current={isActive ? "page" : undefined}
+      prefetch={false}
       onClick={(e) => {
         onNavigate?.();
 

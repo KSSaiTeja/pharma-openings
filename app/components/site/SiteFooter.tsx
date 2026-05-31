@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-import { CONTACT_SECTION } from "@/app/content/site";
+import {
+  CONTACT_SECTION,
+  FOOTER_OFFICES,
+  SOCIAL_LINKS,
+} from "@/app/content/site";
 import { NAV_SECTIONS } from "./navConfig";
 import { siteAsset } from "./paths";
 import { SiteNavLink } from "./SiteNavLink";
@@ -11,7 +15,7 @@ export function SiteFooter() {
       <div className="widget-section p_relative pt_80 pb_100">
         <div className="auto-container">
           <div className="row clearfix">
-            <div className="col-lg-4 col-md-6 col-sm-12 footer-column">
+            <div className="col-lg-3 col-md-6 col-sm-12 footer-column">
               <div className="footer-widget logo-widget mr_30">
                 <figure className="footer-logo mb_20">
                   <Link href="/">
@@ -22,6 +26,20 @@ export function SiteFooter() {
                   PharmaOpenings connects pharma sector talent with global opportunities—from
                   discovery and clinical development to manufacturing and commercial roles.
                 </p>
+                <ul className="social-links clearfix po-footer-social">
+                  {SOCIAL_LINKS.map((item) => (
+                    <li key={item.label}>
+                      <a
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`PharmaOpenings on ${item.label}`}
+                      >
+                        <i className={item.icon} aria-hidden />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
             <div className="col-lg-2 col-md-4 col-sm-12 footer-column">
@@ -47,7 +65,7 @@ export function SiteFooter() {
                 </div>
               </div>
             </div>
-            <div className="col-lg-3 col-md-4 col-sm-12 footer-column">
+            <div className="col-lg-2 col-md-4 col-sm-12 footer-column">
               <div className="footer-widget links-widget">
                 <div className="widget-title">
                   <h4>Company</h4>
@@ -63,7 +81,7 @@ export function SiteFooter() {
                 </div>
               </div>
             </div>
-            <div className="col-lg-3 col-md-4 col-sm-12 footer-column">
+            <div className="col-lg-2 col-md-4 col-sm-12 footer-column">
               <div className="footer-widget links-widget">
                 <div className="widget-title">
                   <h4>Support</h4>
@@ -71,9 +89,34 @@ export function SiteFooter() {
                 <div className="widget-content">
                   <ul className="links-list clearfix">
                     <li>
+                      <Link href="/contact">Contact us</Link>
+                    </li>
+                    <li>
                       <a href={`mailto:${CONTACT_SECTION.email}`}>Email us</a>
                     </li>
                   </ul>
+                </div>
+              </div>
+            </div>
+            <div className="col-lg-3 col-md-6 col-sm-12 footer-column">
+              <div className="footer-widget links-widget">
+                <div className="widget-title">
+                  <h4>Our offices</h4>
+                </div>
+                <div className="widget-content po-footer-offices">
+                  {FOOTER_OFFICES.map((office) => (
+                    <div key={office.region} className="po-footer-office">
+                      <h5 className="po-footer-office__region">{office.region}</h5>
+                      <address className="po-footer-office__address">
+                        {office.lines.map((line) => (
+                          <span key={line}>
+                            {line}
+                            <br />
+                          </span>
+                        ))}
+                      </address>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

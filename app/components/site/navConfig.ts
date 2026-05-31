@@ -6,9 +6,10 @@ export type NavSection = {
 
 export const NAV_SECTIONS: NavSection[] = [
   { id: "about", label: "About", href: "/#about" },
-  { id: "featured-jobs", label: "Openings", href: "/#featured-jobs" },
+  { id: "jobs", label: "Openings", href: "/jobs" },
+  { id: "blog", label: "Blog", href: "/blog" },
   { id: "how-it-works", label: "How it works", href: "/#how-it-works" },
-  { id: "contact", label: "Contact", href: "/#contact" },
+  { id: "contact", label: "Contact", href: "/contact" },
 ];
 
 /** Fixed header + pill offset when scrolling to in-page sections. */

@@ -66,3 +66,15 @@ export function useActiveNavSection() {
 
   return activeId;
 }
+
+/** Active nav item for homepage sections and standalone routes (/blog, /contact, /jobs). */
+export function useNavActiveId() {
+  const pathname = usePathname();
+  const homeSection = useActiveNavSection();
+
+  if (pathname.startsWith("/blog")) return "blog";
+  if (pathname === "/contact") return "contact";
+  if (pathname.startsWith("/jobs")) return "jobs";
+
+  return homeSection;
+}

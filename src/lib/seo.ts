@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { FOOTER_OFFICES, SOCIAL_LINKS } from "@/app/content/site";
 import { absoluteUrl, getSiteUrl } from "@/src/lib/siteUrl";
 
 export const SITE_NAME = "PharmaOpenings";
@@ -132,7 +133,14 @@ export function organizationJsonLd() {
     logo: absoluteUrl(OG_IMAGE_PATH),
     email: CONTACT_EMAIL,
     description: DEFAULT_DESCRIPTION,
-    sameAs: ["https://www.linkedin.com/company/pharmaopenings"],
+    sameAs: SOCIAL_LINKS.map((link) => link.href),
+    address: FOOTER_OFFICES.map((office) => ({
+      "@type": "PostalAddress",
+      name: office.region,
+      streetAddress: office.lines.slice(0, -1).join(", ") || office.lines[0],
+      addressLocality: office.lines[office.lines.length - 1],
+      addressCountry: office.region === "India" ? "IN" : "DE",
+    })),
   };
 }
 
