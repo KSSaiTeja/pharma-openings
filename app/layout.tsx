@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { SiteShell } from "./components/site/SiteShell";
+import { GoatCounterScript } from "./components/site/GoatCounterScript";
 import { SiteScripts } from "./components/site/SiteScripts";
 import { SiteStyles } from "./components/site/SiteStyles";
 import { WhatsAppWidget } from "./components/site/WhatsAppWidget";
@@ -37,6 +38,7 @@ export default function RootLayout({
           <WhatsAppWidget />
         </AppProviders>
         <SiteScripts />
+        <GoatCounterScript />
       </body>
     </html>
   );

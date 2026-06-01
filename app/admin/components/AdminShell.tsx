@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, Briefcase, FileText, LayoutDashboard, LogOut } from "lucide-react";
@@ -13,39 +15,12 @@ type AdminShellProps = {
   onLogout: () => void;
 };
 
-type NavItem = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  exact?: boolean;
-};
-
-const MAIN_NAV: NavItem[] = [
+const MAIN_NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/blog", label: "Blog", icon: FileText },
-];
+] as const;
 
-const INSIGHTS_NAV: NavItem[] = [
-  { href: "/admin/analytics", label: "Website traffic", icon: BarChart3, exact: true },
-];
-
-function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
-  const Icon = item.icon;
-  const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-
-  return (
-    <li>
-      <Link
-        href={item.href}
-        className={cn("po-admin-shell__nav-link", active && "is-active")}
-        aria-current={active ? "page" : undefined}
-      >
-        <Icon className="po-admin-shell__nav-icon" aria-hidden />
-        {item.label}
-      </Link>
-    </li>
-  );
-}
+const INSIGHTS_NAV = [{ href: "/admin/analytics", label: "Website traffic", icon: BarChart3, exact: true }] as const;
 
 export function AdminShell({ children, sessionEmail, onLogout }: AdminShellProps) {
   const pathname = usePathname();
@@ -63,16 +38,42 @@ export function AdminShell({ children, sessionEmail, onLogout }: AdminShellProps
         <nav className="po-admin-shell__nav">
           <p className="po-admin-shell__nav-label">Manage</p>
           <ul className="po-admin-shell__nav-list">
-            {MAIN_NAV.map((item) => (
-              <NavLink key={item.href} item={item} pathname={pathname} />
-            ))}
+            {MAIN_NAV.map((item) => {
+              const Icon = item.icon;
+              const active = "exact" in item && item.exact ? pathname === item.href : pathname.startsWith(item.href);
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={cn("po-admin-shell__nav-link", active && "is-active")}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <Icon className="po-admin-shell__nav-icon" aria-hidden />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
 
           <p className="po-admin-shell__nav-label">Insights</p>
           <ul className="po-admin-shell__nav-list">
-            {INSIGHTS_NAV.map((item) => (
-              <NavLink key={item.href} item={item} pathname={pathname} />
-            ))}
+            {INSIGHTS_NAV.map((item) => {
+              const Icon = item.icon;
+              const active = "exact" in item && item.exact ? pathname === item.href : pathname.startsWith(item.href);
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={cn("po-admin-shell__nav-link", active && "is-active")}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <Icon className="po-admin-shell__nav-icon" aria-hidden />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 

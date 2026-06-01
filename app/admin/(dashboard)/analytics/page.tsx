@@ -1,7 +1,7 @@
 "use client";
 
-import { VisitorAnalyticsPanel } from "@/app/admin/components/VisitorAnalyticsPanel";
+import { GoatCounterAnalyticsPanel } from "@/app/admin/components/GoatCounterAnalyticsPanel";
 
 export default function AdminAnalyticsPage() {
-  return <VisitorAnalyticsPanel />;
+  return <GoatCounterAnalyticsPanel />;
 }

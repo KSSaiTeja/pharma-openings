@@ -271,38 +271,6 @@
   color: var(--po-admin-text);
 }
 
-.po-admin-traffic {
-  margin-top: 28px;
-}
-
-.po-admin-traffic__header {
-  margin-bottom: 12px;
-}
-
-.po-admin-traffic__title {
-  margin: 0;
-  font-size: 1.0625rem;
-  font-weight: 700;
-  color: var(--po-admin-text);
-}
-
-.po-admin-traffic__subtitle {
-  margin: 6px 0 0;
-  font-size: 0.8125rem;
-  line-height: 1.45;
-  color: var(--po-admin-muted);
-}
-
-.po-admin-stats--traffic {
-  margin-top: 0;
-}
-
-@media (min-width: 1200px) {
-  .po-admin-stats--traffic {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
 /* —— Tabs —— */
 
 .po-admin-tabs {
@@ -1144,7 +1112,7 @@
   animation: po-admin-spin 0.8s linear infinite;
 }
 
-/* —— Website traffic analytics —— */
+/* —— GoatCounter analytics (admin) —— */
 
 .po-admin-analytics-hero {
   display: grid;
@@ -1246,10 +1214,10 @@
 
 .po-admin-analytics-hero__mini-value {
   margin: 4px 0 0;
-  font-size: 1.375rem;
+  font-size: 1.125rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
+  line-height: 1.2;
   color: var(--po-admin-text);
 }
 
@@ -1336,22 +1304,58 @@
   color: var(--po-admin-muted);
 }
 
-.po-admin-analytics-note h3 {
+.po-admin-analytics-top-pages h3,
+.po-admin-analytics-setup h3 {
   margin: 0 0 10px;
   font-size: 0.9375rem;
   font-weight: 700;
 }
 
-.po-admin-analytics-note ul {
+.po-admin-analytics-top-pages ul {
   margin: 0;
-  padding-left: 1.1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.po-admin-analytics-top-pages li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--po-admin-border);
+}
+
+.po-admin-analytics-top-pages li:last-child {
+  border-bottom: none;
+}
+
+.po-admin-analytics-top-pages__path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  color: var(--po-admin-text);
+  word-break: break-all;
+}
+
+.po-admin-analytics-top-pages__count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--po-admin-accent);
+}
+
+.po-admin-analytics-setup ol {
+  margin: 0 0 12px;
   font-size: 0.875rem;
   line-height: 1.55;
   color: var(--po-admin-muted);
 }
 
-.po-admin-analytics-note li + li {
-  margin-top: 6px;
+.po-admin-analytics-setup ol {
+  padding-left: 1.2rem;
+}
+
+.po-admin-analytics-setup li + li {
+  margin-top: 8px;
 }
 
 @media (max-width: 640px) {

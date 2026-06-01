@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 import { SitePreloader } from "./SitePreloader";
-import { SiteVisitTracker } from "./SiteVisitTracker";
 type SiteShellProps = {
   children: React.ReactNode;
 };
@@ -20,7 +19,6 @@ export function SiteShell({ children }: SiteShellProps) {
 
   return (
     <div className="boxed_wrapper ltr">
-      <SiteVisitTracker />
       <SitePreloader />
       <SiteHeader />
       {children}
