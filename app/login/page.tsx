@@ -8,7 +8,7 @@ import {
   AuthAlert,
   AuthButton,
   AuthField,
-  AuthInput,
+  AuthMobileInput,
 } from "@/app/components/auth/AuthUi";
 import { AuthPageShell } from "@/app/components/site/AuthPageShell";
 import { OtpBoxes, OTP_DIGIT_COUNT } from "@/components/OtpBoxes";
@@ -20,6 +20,11 @@ import {
   takePostAuthRedirect,
 } from "@/src/lib/authSession";
 import { invokeSupabaseFunction } from "@/src/lib/edgeFunctions";
+import {
+  formatIndianMobileHint,
+  INVALID_INDIAN_MOBILE_MESSAGE,
+  normalizeIndianMobile,
+} from "@/src/lib/mobile";
 import { useRealtimeOtp } from "@/src/lib/realtimeOtp";
 import type { CandidateRow } from "@/types/database.types";
 
@@ -28,19 +33,20 @@ type VerifyOtpResponse = {
   candidate?: CandidateRow | null;
 };
 
-function normalizeMobile(input: string) {
-  return input.trim();
+function initialMobile(): string {
+  const pending = getOtpPendingMobile();
+  return pending ?? "";
 }
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useCandidate();
-  const initialPendingMobile = getOtpPendingMobile();
 
-  const [mobile, setMobile] = useState(() => initialPendingMobile ?? "");
+  const [mobile, setMobile] = useState(initialMobile);
+  const canonicalMobile = useMemo(() => normalizeIndianMobile(mobile), [mobile]);
   const [otp, setOtp] = useState("");
   const [resendIn, setResendIn] = useState(0);
-  const [otpSentOnce, setOtpSentOnce] = useState(() => Boolean(initialPendingMobile));
+  const [otpSentOnce, setOtpSentOnce] = useState(() => Boolean(getOtpPendingMobile()));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notRegistered, setNotRegistered] = useState(false);
@@ -52,14 +58,14 @@ export default function LoginPage() {
   useEffect(() => {
     const pending = getOtpPendingMobile();
     if (!pending) return;
-    if (normalizeMobile(mobile) !== pending) {
+    if (canonicalMobile !== pending) {
       clearOtpPendingMobile();
     }
-  }, [mobile]);
+  }, [canonicalMobile, mobile]);
 
   useRealtimeOtp({
     active: otpSentOnce && !notRegistered,
-    mobile: normalizeMobile(mobile),
+    mobile: canonicalMobile ?? mobile,
     onCode: applyRealtimeOtpCode,
   });
 
@@ -71,16 +77,20 @@ export default function LoginPage() {
     return () => window.clearInterval(t);
   }, [resendIn]);
 
-  const canSendOtp = useMemo(() => normalizeMobile(mobile).length >= 8, [mobile]);
+  const canSendOtp = useMemo(() => canonicalMobile !== null, [canonicalMobile]);
 
   const sendOtp = useCallback(async () => {
     setError(null);
     setNotRegistered(false);
+    if (!canonicalMobile) {
+      setError(INVALID_INDIAN_MOBILE_MESSAGE);
+      return;
+    }
     setBusy(true);
     let fnError: string | null = null;
     try {
       const out = await invokeSupabaseFunction<{ success?: boolean }>("send-otp", {
-        mobile: normalizeMobile(mobile),
+        mobile: canonicalMobile,
       });
       fnError = out.error;
     } catch {
@@ -92,22 +102,26 @@ export default function LoginPage() {
       setError(fnError);
       return;
     }
-    setOtpPendingMobile(normalizeMobile(mobile));
+    setOtpPendingMobile(canonicalMobile);
     setOtpSentOnce(true);
     setOtp("");
-  }, [mobile]);
+  }, [canonicalMobile]);
 
   const canVerify = otpSentOnce && otp.replace(/\D/g, "").length === OTP_DIGIT_COUNT && !busy;
 
   const verifyAndLogin = useCallback(async () => {
     setError(null);
     setNotRegistered(false);
+    if (!canonicalMobile) {
+      setError(INVALID_INDIAN_MOBILE_MESSAGE);
+      return;
+    }
     setBusy(true);
     let data: VerifyOtpResponse | null = null;
     let fnError: string | null = null;
     try {
       const out = await invokeSupabaseFunction<VerifyOtpResponse>("verify-otp", {
-        mobile: normalizeMobile(mobile),
+        mobile: canonicalMobile,
         otp: otp.replace(/\D/g, "").slice(0, OTP_DIGIT_COUNT),
       });
       data = out.data;
@@ -129,10 +143,10 @@ export default function LoginPage() {
     }
 
     clearOtpPendingMobile();
-    await login(normalizeMobile(mobile));
+    await login(canonicalMobile);
     const next = takePostAuthRedirect();
     router.replace(next ?? "/");
-  }, [login, mobile, otp, router]);
+  }, [canonicalMobile, login, otp, router]);
 
   const tryDifferentNumber = useCallback(() => {
     setNotRegistered(false);
@@ -167,16 +181,13 @@ export default function LoginPage() {
 
       {!notRegistered ? (
         <div className="po-auth-stack">
-          <AuthField label="Mobile number" htmlFor="login-mobile" required>
-            <AuthInput
-              id="login-mobile"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="e.g. +91 98765 43210"
-              required
-            />
+          <AuthField
+            label="Mobile number"
+            htmlFor="login-mobile"
+            required
+            hint="India (+91) · 10 digits, no country code"
+          >
+            <AuthMobileInput id="login-mobile" value={mobile} onChange={setMobile} required />
           </AuthField>
 
           <div className="po-auth-actions po-auth-actions--split">
@@ -206,7 +217,9 @@ export default function LoginPage() {
               <p id="login-otp-heading" className="po-auth-otp-label">
                 Enter the {OTP_DIGIT_COUNT}-digit code
               </p>
-              <p className="po-auth-otp-hint">Sent to {normalizeMobile(mobile)}</p>
+              <p className="po-auth-otp-hint">
+                Sent to {canonicalMobile ? formatIndianMobileHint(canonicalMobile) : mobile}
+              </p>
               <OtpBoxes value={otp} onChange={setOtp} disabled={busy} labelledBy="login-otp-heading" />
               <AuthButton variant="accent" disabled={!canVerify} onClick={verifyAndLogin} className="po-auth-btn--block">
                 {busy ? "Signing in…" : "Verify & sign in"}

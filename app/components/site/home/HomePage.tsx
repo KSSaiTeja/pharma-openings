@@ -138,9 +138,9 @@ export function HomePage({ homeJobs, homeJobsLoadError }: HomePageProps) {
                   <p>
                     Reach candidates who understand GxP, protocols, and cross-functional science.
                   </p>
-                  <a href={`mailto:${CONTACT_SECTION.email}`} className="theme-btn btn-one">
+                  <Link href="/partner" className="theme-btn btn-one">
                     Partner with us
-                  </a>
+                  </Link>
                   <figure className="image-box image-hov-two">
                     <img src={siteAsset("images/resource/category-2.jpg")} alt="" />
                   </figure>

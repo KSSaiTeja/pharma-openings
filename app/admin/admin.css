@@ -789,13 +789,22 @@
   color: var(--po-admin-muted);
 }
 
-/* —— Dialogs —— */
+/* —— Dialogs (portaled to body — not under .po-admin) —— */
 
 .po-admin [data-radix-popper-content-wrapper] {
   z-index: 200;
 }
 
-.po-admin .po-admin-dialog {
+.po-admin-dialog {
+  --po-admin-surface: #ffffff;
+  --po-admin-surface-muted: #f4f9ef;
+  --po-admin-border: #d4e0d8;
+  --po-admin-text: #1a3d2e;
+  --po-admin-muted: #5c7268;
+  --po-admin-placeholder: #8aa396;
+  --po-admin-accent: #1a3d2e;
+  --po-admin-accent-hover: #2d5a28;
+  --po-admin-shadow: 0 12px 40px rgba(26, 61, 46, 0.12);
   gap: 0 !important;
   max-height: min(90dvh, 720px);
   padding: 0 !important;
@@ -804,57 +813,178 @@
   border-radius: 16px !important;
   background: var(--po-admin-surface) !important;
   box-shadow: var(--po-admin-shadow) !important;
+  color: var(--po-admin-text);
 }
 
-.po-admin .po-admin-dialog > button.absolute {
+.po-admin-dialog > button.absolute {
   top: 16px;
   right: 16px;
   border-radius: 8px;
   opacity: 0.7;
 }
 
-.po-admin .po-admin-dialog > button.absolute:hover {
+.po-admin-dialog > button.absolute:hover {
   opacity: 1;
   background: var(--po-admin-surface-muted);
 }
 
-.po-admin .po-admin-dialog__header {
+.po-admin-dialog__header {
   gap: 6px !important;
   padding: 22px 24px 16px !important;
   border-bottom: 1px solid var(--po-admin-border);
   text-align: left !important;
 }
 
-.po-admin .po-admin-dialog__title {
+.po-admin-dialog__title {
   font-size: 1.125rem !important;
   font-weight: 700 !important;
   color: var(--po-admin-text) !important;
   letter-spacing: -0.02em;
 }
 
-.po-admin .po-admin-dialog__description {
+.po-admin-dialog__description {
   font-size: 0.875rem !important;
   line-height: 1.5 !important;
   color: var(--po-admin-muted) !important;
 }
 
-.po-admin .po-admin-dialog__body {
+.po-admin-dialog__body {
   padding: 20px 24px;
   overflow-y: auto;
-  max-height: min(60dvh, 480px);
+  max-height: min(60dvh, 520px);
 }
 
-.po-admin .po-admin-dialog__body--form {
+.po-admin-dialog__body--form {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.po-admin .po-admin-dialog__footer {
+.po-admin-dialog__footer {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px !important;
   padding: 16px 24px 20px !important;
   border-top: 1px solid var(--po-admin-border);
   background: var(--po-admin-surface-muted);
+}
+
+/* Dialog controls + buttons (portal is outside .po-admin) */
+.po-admin-dialog input::placeholder,
+.po-admin-dialog textarea::placeholder {
+  color: var(--po-admin-placeholder) !important;
+  opacity: 1 !important;
+}
+
+.po-admin-dialog .po-admin-control,
+.po-admin-dialog input.po-admin-control,
+.po-admin-dialog textarea.po-admin-control {
+  min-height: 46px;
+  width: 100%;
+  border: 1px solid var(--po-admin-border) !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  font-size: 0.9375rem !important;
+  color: var(--po-admin-text) !important;
+  box-shadow: none !important;
+}
+
+.po-admin-dialog textarea.po-admin-control {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.po-admin-dialog .po-admin-control:focus-visible,
+.po-admin-dialog input.po-admin-control:focus-visible,
+.po-admin-dialog textarea.po-admin-control:focus-visible {
+  border-color: #5a8f4a !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(45, 90, 40, 0.12) !important;
+}
+
+.po-admin-dialog button[role="combobox"] {
+  min-height: 46px;
+  width: 100%;
+  border: 1px solid var(--po-admin-border) !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  font-size: 0.9375rem !important;
+  color: var(--po-admin-text) !important;
+  box-shadow: none !important;
+}
+
+.po-admin-dialog button[role="combobox"]:focus-visible {
+  border-color: #5a8f4a !important;
+  box-shadow: 0 0 0 3px rgba(45, 90, 40, 0.12) !important;
+}
+
+.po-admin-dialog label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--po-admin-text);
+}
+
+.po-admin-dialog .po-admin-btn-primary {
+  min-height: 46px;
+  min-width: 7rem;
+  background: var(--po-admin-accent) !important;
+  color: #fff !important;
+  border: 1px solid var(--po-admin-accent) !important;
+  font-weight: 600 !important;
+  border-radius: 10px !important;
+}
+
+.po-admin-dialog .po-admin-btn-primary:hover:not(:disabled) {
+  background: var(--po-admin-accent-hover) !important;
+  border-color: var(--po-admin-accent-hover) !important;
+}
+
+.po-admin-dialog .po-admin-btn-outline {
+  min-height: 46px;
+  border: 1px solid var(--po-admin-border) !important;
+  background: #fff !important;
+  color: var(--po-admin-text) !important;
+  font-weight: 500 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+.po-admin-dialog .po-admin-btn-outline:hover:not(:disabled) {
+  border-color: #b8cfbc !important;
+  background: var(--po-admin-surface-muted) !important;
+}
+
+.po-admin-job-form {
+  gap: 18px !important;
+}
+
+.po-admin-job-form__row {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 540px) {
+  .po-admin-job-form__row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.po-admin-job-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.po-admin-job-form__field--full {
+  grid-column: 1 / -1;
+}
+
+.po-admin-job-dialog {
+  max-width: min(42rem, calc(100vw - 2rem)) !important;
 }
 
 .po-admin .po-admin-note {

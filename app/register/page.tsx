@@ -20,10 +20,15 @@ import {
   readRegisterStep2Draft,
   writeRegisterStep2Draft,
 } from "@/src/lib/registerDraft";
-import { AuthAlert, AuthButton, AuthField, AuthInput, AuthSelect } from "@/app/components/auth/AuthUi";
+import { AuthAlert, AuthButton, AuthField, AuthInput, AuthMobileInput, AuthSelect } from "@/app/components/auth/AuthUi";
 import { AuthPageShell } from "@/app/components/site/AuthPageShell";
 import { OtpBoxes, OTP_DIGIT_COUNT } from "@/components/OtpBoxes";
 import { invokeSupabaseFunction } from "@/src/lib/edgeFunctions";
+import {
+  formatIndianMobileHint,
+  INVALID_INDIAN_MOBILE_MESSAGE,
+  normalizeIndianMobile,
+} from "@/src/lib/mobile";
 import { createSupabaseClient } from "@/src/lib/supabase";
 import {
   DEPARTMENT_OPTIONS,
@@ -59,10 +64,6 @@ type VerifyOtpResponse = {
   candidate?: CandidateRow | null;
 };
 
-function normalizeMobile(input: string) {
-  return input.trim();
-}
-
 function isQualification(value: string): value is (typeof QUALIFICATIONS)[number] {
   return (QUALIFICATIONS as readonly string[]).includes(value);
 }
@@ -71,7 +72,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, refreshCandidate } = useCandidate();
-  const initialPendingMobile = getOtpPendingMobile();
   const registrationSource = searchParams.get("source");
   const fromEmptyState =
     registrationSource === "home-empty" ||
@@ -79,7 +79,8 @@ export default function RegisterPage() {
     registrationSource === "jobs-filter-empty";
 
   const [step, setStep] = useState<1 | 2>(1);
-  const [mobile, setMobile] = useState(() => initialPendingMobile ?? "");
+  const [mobile, setMobile] = useState(() => getOtpPendingMobile() ?? "");
+  const canonicalMobile = useMemo(() => normalizeIndianMobile(mobile), [mobile]);
   const [otp, setOtp] = useState("");
   const [resendIn, setResendIn] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -103,7 +104,7 @@ export default function RegisterPage() {
   const [preferredModulesOthersNote, setPreferredModulesOthersNote] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeHint, setResumeHint] = useState<string | null>(null);
-  const [otpSentOnce, setOtpSentOnce] = useState(() => Boolean(initialPendingMobile));
+  const [otpSentOnce, setOtpSentOnce] = useState(() => Boolean(getOtpPendingMobile()));
   const [restoredDraftBanner, setRestoredDraftBanner] = useState(false);
 
   const resumeInputRef = useRef<HTMLInputElement | null>(null);
@@ -116,14 +117,14 @@ export default function RegisterPage() {
   useEffect(() => {
     const pending = getOtpPendingMobile();
     if (!pending) return;
-    if (normalizeMobile(mobile) !== pending) {
+    if (canonicalMobile !== pending) {
       clearOtpPendingMobile();
     }
-  }, [mobile]);
+  }, [canonicalMobile, mobile]);
 
   useRealtimeOtp({
     active: step === 1 && otpSentOnce,
-    mobile: normalizeMobile(mobile),
+    mobile: canonicalMobile ?? mobile,
     onCode: applyRealtimeOtpCode,
   });
 
@@ -144,7 +145,7 @@ export default function RegisterPage() {
     const apply = () => {
       if (cancelled) return;
       const mods = draft.preferred.filter((p) => (MODULES as readonly string[]).includes(p));
-      setMobile(draft.mobile);
+      setMobile(normalizeIndianMobile(draft.mobile) ?? draft.mobile.replace(/\D/g, "").slice(0, 10));
       setFullName(draft.fullName);
       setEmail(draft.email);
       setDesignation(draft.designation);
@@ -174,8 +175,8 @@ export default function RegisterPage() {
   useEffect(() => {
     if (step !== 2 || alreadyRegistered) return;
     const verified = getVerifiedMobile();
-    const m = normalizeMobile(mobile);
-    if (!verified || verified !== m) return;
+    const m = canonicalMobile;
+    if (!verified || !m || verified !== m) return;
 
     if (draftSaveTimer.current) window.clearTimeout(draftSaveTimer.current);
     draftSaveTimer.current = window.setTimeout(() => {
@@ -205,6 +206,7 @@ export default function RegisterPage() {
     };
   }, [
     alreadyRegistered,
+    canonicalMobile,
     step,
     mobile,
     fullName,
@@ -224,7 +226,7 @@ export default function RegisterPage() {
     preferredModulesOthersNote,
   ]);
 
-  const canSendOtp = useMemo(() => normalizeMobile(mobile).length >= 8, [mobile]);
+  const canSendOtp = useMemo(() => canonicalMobile !== null, [canonicalMobile]);
   const subDepartmentOptions = useMemo(() => getSubDepartmentOptions(department), [department]);
   const designationOptions = useMemo(() => getDesignationOptions(department), [department]);
   const onDepartmentChange = useCallback((nextDepartment: string) => {
@@ -261,11 +263,15 @@ export default function RegisterPage() {
 
   const sendOtp = useCallback(async () => {
     setError(null);
+    if (!canonicalMobile) {
+      setError(INVALID_INDIAN_MOBILE_MESSAGE);
+      return;
+    }
     setBusy(true);
     let fnError: string | null = null;
     try {
       const out = await invokeSupabaseFunction<{ success?: boolean }>("send-otp", {
-        mobile: normalizeMobile(mobile),
+        mobile: canonicalMobile,
       });
       fnError = out.error;
     } catch {
@@ -277,22 +283,26 @@ export default function RegisterPage() {
       setError(fnError);
       return;
     }
-    setOtpPendingMobile(normalizeMobile(mobile));
+    setOtpPendingMobile(canonicalMobile);
     setOtpSentOnce(true);
     setOtp("");
-  }, [mobile]);
+  }, [canonicalMobile]);
 
   const canVerify = otpSentOnce && otp.replace(/\D/g, "").length === OTP_DIGIT_COUNT && !busy;
 
   const verifyOtp = useCallback(async () => {
     setError(null);
     setAlreadyRegistered(false);
+    if (!canonicalMobile) {
+      setError(INVALID_INDIAN_MOBILE_MESSAGE);
+      return;
+    }
     setBusy(true);
     let data: VerifyOtpResponse | null = null;
     let fnError: string | null = null;
     try {
       const out = await invokeSupabaseFunction<VerifyOtpResponse>("verify-otp", {
-        mobile: normalizeMobile(mobile),
+        mobile: canonicalMobile,
         otp: otp.replace(/\D/g, "").slice(0, OTP_DIGIT_COUNT),
       });
       data = out.data;
@@ -314,10 +324,10 @@ export default function RegisterPage() {
     }
 
     clearOtpPendingMobile();
-    setVerifiedMobile(normalizeMobile(mobile));
+    setVerifiedMobile(canonicalMobile);
     await refreshCandidate();
     setStep(2);
-  }, [mobile, otp, refreshCandidate]);
+  }, [canonicalMobile, otp, refreshCandidate]);
 
   const toggleModule = useCallback((m: string) => {
     setPreferred((prev) => {
@@ -358,7 +368,7 @@ export default function RegisterPage() {
     const parsed = registerSubmitSchema.safeParse({
       fullName,
       email,
-      mobile: normalizeMobile(mobile),
+      mobile: canonicalMobile ?? mobile,
       department,
       subDepartment,
       designation,
@@ -444,7 +454,7 @@ export default function RegisterPage() {
     const { data: inserted, error: insertError } = await supabase
       .from("candidates")
       .insert({
-        mobile: normalizeMobile(mobile),
+        mobile: payload.mobile,
         full_name: payload.fullName,
         email: payload.email,
         current_designation: taxonomy.designation,
@@ -512,12 +522,13 @@ export default function RegisterPage() {
     }
 
     clearRegisterStep2Draft();
-    await login(normalizeMobile(mobile));
+    await login(payload.mobile);
     setBusy(false);
 
     const next = takePostAuthRedirect();
     router.replace(next ?? "/jobs");
   }, [
+    canonicalMobile,
     company,
     preferredLocation,
     department,
@@ -587,15 +598,13 @@ export default function RegisterPage() {
 
       {!alreadyRegistered && step === 1 ? (
         <div className="po-auth-stack">
-          <AuthField label="Mobile number" htmlFor="register-mobile" required>
-            <AuthInput
-              id="register-mobile"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="e.g. +91 98765 43210"
-            />
+          <AuthField
+            label="Mobile number"
+            htmlFor="register-mobile"
+            required
+            hint="India (+91) · 10 digits, no country code"
+          >
+            <AuthMobileInput id="register-mobile" value={mobile} onChange={setMobile} required />
           </AuthField>
 
           <div className="po-auth-actions po-auth-actions--split">
@@ -625,7 +634,9 @@ export default function RegisterPage() {
               <p id="register-otp-heading" className="po-auth-otp-label">
                 Enter the {OTP_DIGIT_COUNT}-digit code
               </p>
-              <p className="po-auth-otp-hint">Sent to {normalizeMobile(mobile)}</p>
+              <p className="po-auth-otp-hint">
+                Sent to {canonicalMobile ? formatIndianMobileHint(canonicalMobile) : mobile}
+              </p>
               <OtpBoxes value={otp} onChange={setOtp} disabled={busy} labelledBy="register-otp-heading" />
               <AuthButton variant="accent" disabled={!canVerify} onClick={verifyOtp} className="po-auth-btn--block">
                 {busy ? "Verifying…" : "Verify & continue"}
@@ -672,7 +683,7 @@ export default function RegisterPage() {
               <label className="po-auth-label-block">
                 Mobile
                 <input
-                  value={normalizeMobile(mobile)}
+                  value={canonicalMobile ?? mobile}
                   readOnly
                   tabIndex={-1}
                   aria-readonly="true"

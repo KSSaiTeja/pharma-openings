@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { normalizeIndianMobile } from "../_shared/mobile.ts";
 import {
   MSG91_OTP_ROW_MARKER,
   formatIndiaMsg91Mobile,
@@ -116,10 +117,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    const mobile = mobileRaw.trim();
+    const mobile = normalizeIndianMobile(mobileRaw);
     const otp = otpRaw.trim();
     if (!mobile || !otp) {
-      return json({ error: "Invalid mobile or OTP.", code: "validation_error" }, 400);
+      return json(
+        { error: "Enter a valid 10-digit mobile number and OTP.", code: "validation_error" },
+        400,
+      );
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);

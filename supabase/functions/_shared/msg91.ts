@@ -1,3 +1,5 @@
+import { normalizeIndianMobile } from "./mobile.ts";
+
 /**
  * MSG91 OTP API v5 (SendOTP + server-side verify).
  * @see https://docs.msg91.com/otp
@@ -12,19 +14,10 @@ export function msg91OtpConfigured(): boolean {
   return auth.length > 0 && tid.length > 0;
 }
 
-/**
- * Normalize to MSG91 "mobile" (India): 91 + 10 digits starting with 6–9.
- * Accepts trimmed user input (e.g. "9876543210", "+91 98765 43210").
- */
+/** MSG91 API mobile: `91` + canonical 10 digits. */
 export function formatIndiaMsg91Mobile(mobileTrimmed: string): string | null {
-  const digits = mobileTrimmed.replace(/\D/g, "");
-  if (digits.length === 10 && /^[6-9]\d{9}$/.test(digits)) {
-    return `91${digits}`;
-  }
-  if (digits.length === 12 && digits.startsWith("91") && /^91[6-9]\d{9}$/.test(digits)) {
-    return digits;
-  }
-  return null;
+  const ten = normalizeIndianMobile(mobileTrimmed);
+  return ten ? `91${ten}` : null;
 }
 
 function parseMsg91Json(text: string): { type?: string; message?: string } {

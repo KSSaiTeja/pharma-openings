@@ -15,6 +15,7 @@ import {
   getVerifiedMobile,
   setVerifiedMobile,
 } from "@/src/lib/authSession";
+import { normalizeIndianMobile } from "@/src/lib/mobile";
 import { createSupabaseClient } from "@/src/lib/supabase";
 import type { CandidateRow } from "@/types/database.types";
 
@@ -68,10 +69,14 @@ export function CandidateProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(
     async (mobile: string) => {
       await Promise.resolve();
-      setVerifiedMobile(mobile.trim());
+      const normalized = normalizeIndianMobile(mobile);
+      if (!normalized) {
+        setCandidate(null);
+        return;
+      }
+      setVerifiedMobile(normalized);
       const supabase = createSupabaseClient();
-      const normalized = mobile.trim();
-      if (!supabase || !normalized) {
+      if (!supabase) {
         setCandidate(null);
         return;
       }

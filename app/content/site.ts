@@ -35,22 +35,12 @@ export const FOOTER_OFFICES = [
 export const SOCIAL_LINKS = [
   {
     label: "LinkedIn",
-    href: "https://www.linkedin.com/company/pharmaopenings",
+    href: "https://linkedin.com/in/pharmaopenings/",
     icon: "fab fa-linkedin-in",
   },
   {
     label: "Instagram",
-    href: "https://www.instagram.com/pharmaopenings",
+    href: "https://www.instagram.com/pharmaopenings2026?igsh=MWM1YTdwNG5yZHozaA==",
     icon: "fab fa-instagram",
-  },
-  {
-    label: "Facebook",
-    href: "https://www.facebook.com/pharmaopenings",
-    icon: "fab fa-facebook-f",
-  },
-  {
-    label: "YouTube",
-    href: "https://www.youtube.com/@pharmaopenings",
-    icon: "fab fa-youtube",
   },
 ] as const;

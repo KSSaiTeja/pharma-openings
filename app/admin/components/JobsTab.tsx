@@ -14,15 +14,10 @@ import {
   AdminTableWrap,
   adminDialogClass,
 } from "@/app/admin/components/AdminUi";
+import { JobFormDialog, type JobFormValues } from "@/app/admin/components/JobFormDialog";
+import { JOB_TYPES, type JobType } from "@/app/admin/admin-constants";
 import { JOB_CSV_TEMPLATE_HEADERS, parseJobCsv } from "@/app/admin/lib/jobCsv";
-import {
-  JOB_MODULES,
-  JOB_TYPES,
-  QUALIFICATIONS,
-  type JobModule,
-  type JobType,
-  type Qualification,
-} from "@/app/admin/admin-constants";
+import { normalizeJobModuleField, normalizeJobQualificationField } from "@/app/admin/lib/jobFields";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,18 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { adminJobUpsertSchema } from "@/src/lib/schemas/forms";
 import type { Database, Tables, TablesInsert } from "@/types/database.types";
@@ -53,15 +38,7 @@ type Props = {
   onStatsBump: () => void;
 };
 
-const emptyForm: {
-  title: string;
-  location: string;
-  department: string;
-  type: JobType;
-  module: JobModule;
-  qualification_needed: Qualification;
-  description: string;
-} = {
+const emptyForm: JobFormValues = {
   title: "",
   location: "",
   department: "",
@@ -143,17 +120,19 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
       location: j.location,
       department: j.department ?? "",
       type: (JOB_TYPES.includes(j.type as JobType) ? j.type : "Full-time") as JobType,
-      module: (JOB_MODULES.includes(j.module as JobModule) ? j.module : "Others") as JobModule,
-      qualification_needed: (QUALIFICATIONS.includes(j.qualification_needed as Qualification)
-        ? j.qualification_needed
-        : "Any") as Qualification,
+      module: j.module?.trim() || "Others",
+      qualification_needed: j.qualification_needed?.trim() || "Any",
       description: j.description,
     });
     setFormOpen(true);
   };
 
   const saveJob = async () => {
-    const parsed = adminJobUpsertSchema.safeParse(form);
+    const parsed = adminJobUpsertSchema.safeParse({
+      ...form,
+      module: normalizeJobModuleField(form.module),
+      qualification_needed: normalizeJobQualificationField(form.qualification_needed),
+    });
     if (!parsed.success) {
       const firstError = parsed.error.issues[0]?.message ?? "Please review the form fields.";
       openStatusPopup("error", "Could not save job", [firstError]);
@@ -482,99 +461,15 @@ export function JobsTab({ supabase, onStatsBump }: Props) {
         </Table>
       </AdminTableWrap>
 
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className={cn(adminDialogClass, "sm:max-w-lg")}>
-          <DialogHeader className="po-admin-dialog__header">
-            <DialogTitle className="po-admin-dialog__title">{editingId ? "Edit job" : "Add job"}</DialogTitle>
-            <DialogDescription className="po-admin-dialog__description">
-              Required fields are marked. Department is optional.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="po-admin-dialog__body po-admin-dialog__body--form grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="job-title">Title *</Label>
-              <Input id="job-title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job-loc">Location *</Label>
-              <Input id="job-loc" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job-dept">Department</Label>
-              <Input
-                id="job-dept"
-                value={form.department}
-                onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job-type">Type</Label>
-              <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v as JobType }))}>
-                <SelectTrigger id="job-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {JOB_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job-module">Module *</Label>
-              <Select value={form.module} onValueChange={(v) => setForm((f) => ({ ...f, module: v as JobModule }))}>
-                <SelectTrigger id="job-module">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {JOB_MODULES.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job-qualification">Qualification needed *</Label>
-              <Select
-                value={form.qualification_needed}
-                onValueChange={(v) => setForm((f) => ({ ...f, qualification_needed: v as Qualification }))}
-              >
-                <SelectTrigger id="job-qualification">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {QUALIFICATIONS.map((q) => (
-                    <SelectItem key={q} value={q}>
-                      {q}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job-desc">Description *</Label>
-              <Textarea
-                id="job-desc"
-                rows={5}
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              />
-            </div>
-          </div>
-          <DialogFooter className="po-admin-dialog__footer">
-            <Button type="button" variant="outline" className="po-admin-btn-outline" onClick={() => setFormOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="button" className="po-admin-btn-primary" onClick={() => void saveJob()} disabled={saveBusy}>
-              {saveBusy ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <JobFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        editing={Boolean(editingId)}
+        form={form}
+        onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+        onSave={() => void saveJob()}
+        saveBusy={saveBusy}
+      />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className={adminDialogClass}>

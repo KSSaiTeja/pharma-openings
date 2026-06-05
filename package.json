@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck:functions": "tsc --noEmit -p supabase/functions/tsconfig.json"
+    "typecheck:functions": "tsc --noEmit -p supabase/functions/tsconfig.json",
+    "seed:demo-candidates": "npx tsx scripts/seed-demo-candidates.ts",
+    "seed:demo-jobs": "npx tsx scripts/seed-demo-jobs.ts",
+    "reset:jobs": "npx tsx scripts/reset-jobs.ts",
+    "reset:hiring-data": "npx tsx scripts/reset-hiring-data.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",

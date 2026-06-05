@@ -1,3 +1,5 @@
+import { normalizeIndianMobile } from "@/src/lib/mobile";
+
 export const VERIFIED_MOBILE_KEY = "po_verified_mobile";
 /** Session mobile for OTP Realtime / RLS channel binding before verify-otp completes. */
 export const OTP_PENDING_MOBILE_KEY = "po_otp_pending_mobile";
@@ -6,12 +8,15 @@ export const POST_AUTH_REDIRECT_KEY = "po_redirect_after_auth";
 export function getVerifiedMobile(): string | null {
   if (typeof window === "undefined") return null;
   const v = window.sessionStorage.getItem(VERIFIED_MOBILE_KEY);
-  return v?.trim() ? v.trim() : null;
+  if (!v?.trim()) return null;
+  return normalizeIndianMobile(v) ?? v.trim();
 }
 
 export function setVerifiedMobile(mobile: string) {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(VERIFIED_MOBILE_KEY, mobile.trim());
+  const normalized = normalizeIndianMobile(mobile);
+  if (!normalized) return;
+  window.sessionStorage.setItem(VERIFIED_MOBILE_KEY, normalized);
 }
 
 export function clearVerifiedMobile() {
@@ -22,12 +27,15 @@ export function clearVerifiedMobile() {
 export function getOtpPendingMobile(): string | null {
   if (typeof window === "undefined") return null;
   const v = window.sessionStorage.getItem(OTP_PENDING_MOBILE_KEY);
-  return v?.trim() ? v.trim() : null;
+  if (!v?.trim()) return null;
+  return normalizeIndianMobile(v) ?? v.trim();
 }
 
 export function setOtpPendingMobile(mobile: string) {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(OTP_PENDING_MOBILE_KEY, mobile.trim());
+  const normalized = normalizeIndianMobile(mobile);
+  if (!normalized) return;
+  window.sessionStorage.setItem(OTP_PENDING_MOBILE_KEY, normalized);
 }
 
 export function clearOtpPendingMobile() {

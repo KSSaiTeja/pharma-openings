@@ -1,7 +1,15 @@
 import { z } from "zod";
 
+import { INVALID_INDIAN_MOBILE_MESSAGE, normalizeIndianMobile } from "@/src/lib/mobile";
+
 const trimString = z.string().trim();
 const optionalTrimmed = trimString.transform((value) => value || undefined);
+
+const indianMobileSchema = trimString
+  .refine((value) => normalizeIndianMobile(value) !== null, {
+    message: INVALID_INDIAN_MOBILE_MESSAGE,
+  })
+  .transform((value) => normalizeIndianMobile(value)!);
 
 export const STRING_LIMITS = {
   name: 100,
@@ -39,7 +47,7 @@ export const registerSubmitSchema = z
   .object({
     fullName: trimString.min(1, "Full name is required.").max(STRING_LIMITS.name),
     email: trimString.min(1, "Email is required.").max(STRING_LIMITS.email).email("Invalid email address."),
-    mobile: trimString.min(8).max(STRING_LIMITS.mobile),
+    mobile: indianMobileSchema,
     department: trimString.min(1, "Please select your department.").max(STRING_LIMITS.department),
     subDepartment: trimString.min(1, "Please select your sub-department.").max(STRING_LIMITS.subDepartment),
     designation: trimString.min(1, "Please select your current designation.").max(STRING_LIMITS.designation),
@@ -181,7 +189,7 @@ export const adminJobUpsertSchema = z.object({
     "Department is too long.",
   ),
   type: z.enum(JOB_TYPES),
-  module: z.enum(JOB_MODULES),
-  qualification_needed: z.enum(APPLY_QUALIFICATIONS),
+  module: trimString.min(1, "Module is required.").max(120),
+  qualification_needed: trimString.min(1, "Qualification is required.").max(200),
   description: trimString.min(1, "Description is required.").max(STRING_LIMITS.jobDescription),
 });

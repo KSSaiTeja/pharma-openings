@@ -39,6 +39,27 @@ export function AuthInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`po-auth-input${props.className ? ` ${props.className}` : ""}`} />;
 }
 
+type AuthMobileInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> & {
+  value: string;
+  onChange: (digits: string) => void;
+};
+
+/** Indian mobile: digits only, max 10 (national number without +91). */
+export function AuthMobileInput({ value, onChange, className, ...props }: AuthMobileInputProps) {
+  return (
+    <AuthInput
+      {...props}
+      value={value}
+      onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 10))}
+      inputMode="numeric"
+      autoComplete="tel-national"
+      maxLength={10}
+      placeholder="9876543210"
+      className={className}
+    />
+  );
+}
+
 export function AuthSelect({
   className,
   value,

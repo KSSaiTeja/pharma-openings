@@ -1,7 +1,12 @@
 import type { TablesInsert } from "@/types/database.types";
 
-import { JOB_MODULES, JOB_TYPES, QUALIFICATIONS, type JobModule, type JobType, type Qualification } from "../admin-constants";
 import { jobCsvMappedOutputSchema, type JobCsvMappedOutput } from "@/src/lib/schemas/csv";
+import {
+  normalizeJobModuleField,
+  normalizeJobQualificationField,
+  normalizeJobTypeField,
+} from "./jobFields";
+import type { JobType } from "../admin-constants";
 
 export const JOB_CSV_TEMPLATE_HEADERS =
   "Title,Location,Department,Type,Module,Qualification Needed,Description";
@@ -61,6 +66,7 @@ const HEADER_ALIASES: Record<string, keyof JobCsvMapped> = {
   department: "department",
   type: "type",
   module: "module",
+  modules: "module",
   "qualification needed": "qualificationNeeded",
   qualification: "qualificationNeeded",
   "qualification required": "qualificationNeeded",
@@ -68,36 +74,6 @@ const HEADER_ALIASES: Record<string, keyof JobCsvMapped> = {
 };
 
 export type JobCsvMapped = JobCsvMappedOutput;
-
-const MODULE_SET = new Set<string>(JOB_MODULES);
-const TYPE_SET = new Set<string>(JOB_TYPES);
-const QUAL_SET = new Set<string>(QUALIFICATIONS);
-
-function normalizeModule(raw: string): JobModule {
-  const s = raw.trim();
-  if (MODULE_SET.has(s)) return s as JobModule;
-  const cap = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-  if (MODULE_SET.has(cap)) return cap as JobModule;
-  return "Others";
-}
-
-function normalizeType(raw: string): JobType {
-  const s = raw.trim();
-  if (TYPE_SET.has(s)) return s as JobType;
-  const lower = s.toLowerCase();
-  if (lower === "full time" || lower === "fulltime") return "Full-time";
-  if (lower === "part time" || lower === "parttime") return "Part-time";
-  if (lower === "contract") return "Contract";
-  return "Full-time";
-}
-
-function normalizeQual(raw: string): Qualification {
-  const s = raw.trim();
-  if (QUAL_SET.has(s)) return s as Qualification;
-  const found = QUALIFICATIONS.find((q) => q.toLowerCase() === s.toLowerCase());
-  if (found) return found;
-  return "Any";
-}
 
 export type JobCsvRowResult =
   | { ok: true; row: TablesInsert<"jobs"> }
@@ -165,9 +141,9 @@ export function rowToJobInsert(
     title,
     location,
     department: acc.department ?? "",
-    type: normalizeType(acc.type ?? "Full-time"),
-    module: normalizeModule(acc.module ?? "Others"),
-    qualificationNeeded: normalizeQual(acc.qualificationNeeded ?? "Any"),
+    type: normalizeJobTypeField(acc.type ?? "Full-time"),
+    module: normalizeJobModuleField(acc.module ?? "Others"),
+    qualificationNeeded: normalizeJobQualificationField(acc.qualificationNeeded ?? "Any"),
     description,
   });
   if (!mapped.success) {
@@ -181,8 +157,8 @@ export function rowToJobInsert(
       location: normalized.location,
       department: normalized.department || null,
       type: normalized.type as JobType,
-      module: normalized.module as JobModule,
-      qualification_needed: normalized.qualificationNeeded as Qualification,
+      module: normalized.module,
+      qualification_needed: normalized.qualificationNeeded,
       description: normalized.description,
       is_active: true,
     },
@@ -209,16 +185,25 @@ export function parseJobCsv(text: string): JobCsvParseSummary {
     { key: "description", label: "Description" },
   ];
   const mappedHeaderKeys = new Set(Object.values(colMap).filter((v): v is keyof JobCsvMapped => Boolean(v)));
+  const normalizedHeaders = header.map((h) => normHeader(h));
+  const looksLikeCandidateCsv =
+    normalizedHeaders.includes("full name") ||
+    normalizedHeaders.includes("email") ||
+    normalizedHeaders.includes("mobile") ||
+    normalizedHeaders.includes("preferred modules");
   const missingRequiredColumns = requiredColumns.filter(({ key }) => !mappedHeaderKeys.has(key));
   if (missingRequiredColumns.length > 0) {
     const labels = missingRequiredColumns.map((c) => `'${c.label}'`).join(", ");
+    const wrongFileHint = looksLikeCandidateCsv
+      ? " This file looks like a candidate/talent-pool CSV. Use data/demo-jobs-60.csv or download the jobs template from this page."
+      : ` Expected header row: ${JOB_CSV_TEMPLATE_HEADERS}`;
     return {
       inserted: [],
       totalRows: Math.max(rows.length - 1, 0),
       skipped: 0,
       skipReasons: { missing_required: 0, empty_row: 0, invalid_data: 0 },
       rowErrors: [],
-      headerError: `Missing required column${missingRequiredColumns.length > 1 ? "s" : ""}: ${labels}.`,
+      headerError: `Missing required column${missingRequiredColumns.length > 1 ? "s" : ""}: ${labels}.${wrongFileHint}`,
     };
   }
 

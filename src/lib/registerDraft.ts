@@ -1,3 +1,5 @@
+import { normalizeIndianMobile } from "@/src/lib/mobile";
+
 export const REGISTER_STEP2_DRAFT_KEY = "po_register_step2_draft";
 
 export type RegisterStep2DraftV1 = {
@@ -32,7 +34,7 @@ export function readRegisterStep2Draft(): RegisterStep2DraftV1 | null {
     const preferred = Array.isArray(o.preferred) ? o.preferred.filter((x): x is string => typeof x === "string") : [];
     return {
       v: 1,
-      mobile: o.mobile.trim(),
+      mobile: normalizeIndianMobile(o.mobile) ?? o.mobile.trim(),
       fullName: typeof o.fullName === "string" ? o.fullName : "",
       email: typeof o.email === "string" ? o.email : "",
       designation: typeof o.designation === "string" ? o.designation : "",

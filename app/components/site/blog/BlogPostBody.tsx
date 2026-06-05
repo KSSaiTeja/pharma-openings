@@ -76,7 +76,7 @@ export function BlogPostBody({ post }: { post: BlogPost }) {
           <li>
             <h6>Share:</h6>
           </li>
-          {SOCIAL_LINKS.slice(0, 3).map((item) => (
+          {SOCIAL_LINKS.map((item) => (
             <li key={item.label}>
               <a href={item.href} target="_blank" rel="noopener noreferrer" aria-label={item.label}>
                 <i className={item.icon} aria-hidden />

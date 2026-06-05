@@ -3,6 +3,7 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useRef } from "react";
 
+import { normalizeIndianMobile } from "@/src/lib/mobile";
 import { createSupabaseClient } from "@/src/lib/supabase";
 import type { Database } from "@/types/database.types";
 
@@ -44,7 +45,7 @@ export function subscribeRealtimeOtpInsert(
   mobile: string,
   onCode: (code: string) => void,
 ): () => void {
-  const m = mobile.trim();
+  const m = normalizeIndianMobile(mobile) ?? mobile.trim();
   if (!m) return () => {};
 
   const filter = `mobile=eq.${encodeURIComponent(m)}`;
@@ -95,8 +96,8 @@ export function useRealtimeOtp(args: {
     const supabase = createSupabaseClient();
     if (!supabase) return;
 
-    const m = args.mobile.trim();
-    if (m.length < 8) return;
+    const m = normalizeIndianMobile(args.mobile) ?? args.mobile.trim();
+    if (m.length !== 10) return;
 
     const flush = (code: string) => {
       if (debounceTimer.current != null) {

@@ -1,0 +1,61 @@
+Full Name,Email,Mobile,Department,Sub Department,Designation,Company,Qualification,Preferred Modules,Preferred Location,Notice Period
+Vikram Gupta,demo.profile.001@pharmaopenings.demo,9900100001,Quality Assurance,IPQA,Executive,Sun Pharmaceutical,B.Pharm,OSD,Ahmedabad,Immediate
+Amit Verma,demo.profile.002@pharmaopenings.demo,9900100002,Quality Assurance,QMS,Assistant Manager,Cipla,B.Sc,OSD,Hyderabad,15 days
+Sanjay Patel,demo.profile.003@pharmaopenings.demo,9900100003,Quality Assurance,Validations,Deputy Manager,Cadila Healthcare (Zydus),M.Sc,OSD; API,Bangalore,30 days
+Manish Desai,demo.profile.004@pharmaopenings.demo,9900100004,Quality Control,Finished Products,Senior Executive,Lupin,B.Pharm,OSD,Bangalore,45 days
+Harish Gupta,demo.profile.005@pharmaopenings.demo,9900100005,Quality Control,Stability,Executive,Aurobindo Pharma,M.Sc,OSD,Goa,60 days
+Ashok Verma,demo.profile.006@pharmaopenings.demo,9900100006,Quality Control,QC Microbiology,Manager,Biocon,D.Pharm,API,Delhi NCR,90 days
+Karthik Patel,demo.profile.007@pharmaopenings.demo,9900100007,Production OSD (Oral Solid Dosage),Granulation Operator,Operator,Biocon,PhD,OSD,Baddi,Immediate
+Harsh Desai,demo.profile.008@pharmaopenings.demo,9900100008,Production OSD (Oral Solid Dosage),Compression Operator,Senior Technical Associate,Torrent Pharmaceuticals,D.Pharm,OSD,Visakhapatnam,15 days
+Ananya Gupta,demo.profile.009@pharmaopenings.demo,9900100009,Production OSD (Oral Solid Dosage),Coating Operator,Supervisor,Alkem Laboratories,ITI,OSD,Nagpur,30 days
+Divya Verma,demo.profile.010@pharmaopenings.demo,9900100010,Production INJECTABLES,Filling,Operator,Intas Pharmaceuticals,PhD,Injectables,Nagpur,45 days
+Vikram Patel,demo.profile.011@pharmaopenings.demo,9900100011,Production INJECTABLES,Lyophilization Operation & PFS,Officer,Emcure Pharmaceuticals,B.Sc,Injectables,Visakhapatnam,60 days
+Amit Desai,demo.profile.012@pharmaopenings.demo,9900100012,Production INJECTABLES,Batch Manufacturing,Management Associate,Alembic Pharmaceuticals,B.Sc,Injectables,Visakhapatnam,90 days
+Sanjay Gupta,demo.profile.013@pharmaopenings.demo,9900100013,Packing,Blister Packing,Technical Associate,Emcure Pharmaceuticals,Diploma,OSD,Bangalore,Immediate
+Manish Verma,demo.profile.014@pharmaopenings.demo,9900100014,Packing,Primary & Secondary Packing,Supervisor,Syngene International,Diploma,OSD; API,Bangalore,15 days
+Harish Patel,demo.profile.015@pharmaopenings.demo,9900100015,Engineering,HVAC & Utility,Senior Executive,Granules India,PhD,API,Mumbai,30 days
+Ashok Desai,demo.profile.016@pharmaopenings.demo,9900100016,Engineering,Process Maintenance,Manager,Granules India,B.Sc,OSD,Hyderabad,45 days
+Karthik Gupta,demo.profile.017@pharmaopenings.demo,9900100017,Research and Development,Process R&D,Research Scientist,Piramal Pharma,PhD,API,Pune,60 days
+Harsh Verma,demo.profile.018@pharmaopenings.demo,9900100018,Formulation Research and Development (FR&D),OSD,Senior Research Scientist,Piramal Pharma,M.Sc,OSD,Bangalore,90 days
+Ananya Patel,demo.profile.019@pharmaopenings.demo,9900100019,Formulation Research and Development (FR&D),Injectables,Manager,Sun Pharmaceutical,M.Sc,Injectables,Goa,Immediate
+Divya Desai,demo.profile.020@pharmaopenings.demo,9900100020,Analytical Research and Development (AR&D),Method Development & Method Validation,Deputy Manager,Sun Pharmaceutical,B.Sc,API,Vadodara,15 days
+Vikram Gupta,demo.profile.021@pharmaopenings.demo,9900100021,Regulatory Affairs,CMC,Manager,Lupin,M.Sc,OSD; API,Goa,30 days
+Amit Verma,demo.profile.022@pharmaopenings.demo,9900100022,Regulatory Affairs,Documentation,Manager,Cipla,B.Pharm,OSD,Goa,45 days
+Sanjay Patel,demo.profile.023@pharmaopenings.demo,9900100023,Stores & Warehouse & Logistics,,Executive,Glenmark Pharmaceuticals,Diploma,OSD; Others,Kolkata,60 days
+Manish Desai,demo.profile.024@pharmaopenings.demo,9900100024,Purchase & Procurement,Raw Material,Senior Executive,Aurobindo Pharma,B.Sc,API,Delhi NCR,90 days
+Harish Gupta,demo.profile.025@pharmaopenings.demo,9900100025,Supply Chain Management,Demand Planning,Assistant Manager,Torrent Pharmaceuticals,B.Sc,OSD; API,Visakhapatnam,Immediate
+Ashok Verma,demo.profile.026@pharmaopenings.demo,9900100026,Sales & Marketing,OSD,Manager,Cadila Healthcare (Zydus),M.Pharm,OSD,Baddi,15 days
+Karthik Patel,demo.profile.027@pharmaopenings.demo,9900100027,Sales & Marketing,Injectables,Senior Manager,Alkem Laboratories,M.Sc,Injectables,Kolkata,30 days
+Harsh Desai,demo.profile.028@pharmaopenings.demo,9900100028,Bio Pharmaceutical Specialist,,Manager,Glenmark Pharmaceuticals,M.Sc,Injectables,Ahmedabad,45 days
+Ananya Gupta,demo.profile.029@pharmaopenings.demo,9900100029,CSV IT QA,,Senior Executive,Granules India,M.Sc,OSD; Others,Ahmedabad,60 days
+Divya Verma,demo.profile.030@pharmaopenings.demo,9900100030,Safety,,Officer,Granules India,B.Sc,Others,Ankleshwar,90 days
+Vikram Patel,demo.profile.031@pharmaopenings.demo,9900100031,Fresher,General,Fresher,Mankind Pharma,B.Pharm,OSD,Ahmedabad,Immediate
+Amit Desai,demo.profile.032@pharmaopenings.demo,9900100032,Fresher,Not working,Intern,Emcure Pharmaceuticals,B.Pharm,API,Delhi NCR,15 days
+Sanjay Gupta,demo.profile.033@pharmaopenings.demo,9900100033,Quality Assurance,IPQA,Executive,Emcure Pharmaceuticals,B.Sc,OSD,Hyderabad,30 days
+Manish Verma,demo.profile.034@pharmaopenings.demo,9900100034,Quality Assurance,QMS,Assistant Manager,Alembic Pharmaceuticals,M.Pharm,OSD,Pune,45 days
+Harish Patel,demo.profile.035@pharmaopenings.demo,9900100035,Quality Assurance,Validations,Deputy Manager,Piramal Pharma,B.Sc,OSD; API,Vadodara,60 days
+Ashok Desai,demo.profile.036@pharmaopenings.demo,9900100036,Quality Control,Finished Products,Senior Executive,Granules India,B.Sc,OSD,Vadodara,90 days
+Karthik Gupta,demo.profile.037@pharmaopenings.demo,9900100037,Quality Control,Stability,Executive,Syngene International,B.Sc,OSD,Delhi NCR,Immediate
+Harsh Verma,demo.profile.038@pharmaopenings.demo,9900100038,Quality Control,QC Microbiology,Manager,Wockhardt,PhD,API,Baddi,15 days
+Ananya Patel,demo.profile.039@pharmaopenings.demo,9900100039,Production OSD (Oral Solid Dosage),Granulation Operator,Operator,Wockhardt,Diploma,OSD,Kolkata,30 days
+Divya Desai,demo.profile.040@pharmaopenings.demo,9900100040,Production OSD (Oral Solid Dosage),Compression Operator,Senior Technical Associate,IPCA Laboratories,PhD,OSD,Nagpur,45 days
+Vikram Gupta,demo.profile.041@pharmaopenings.demo,9900100041,Production OSD (Oral Solid Dosage),Coating Operator,Supervisor,Sun Pharmaceutical,Diploma,OSD,Ahmedabad,60 days
+Amit Verma,demo.profile.042@pharmaopenings.demo,9900100042,Production INJECTABLES,Filling,Operator,Lupin,Diploma,Injectables,Ahmedabad,90 days
+Sanjay Patel,demo.profile.043@pharmaopenings.demo,9900100043,Production INJECTABLES,Lyophilization Operation & PFS,Officer,Aurobindo Pharma,M.Pharm,Injectables,Nagpur,Immediate
+Manish Desai,demo.profile.044@pharmaopenings.demo,9900100044,Production INJECTABLES,Batch Manufacturing,Management Associate,Cadila Healthcare (Zydus),M.Pharm,Injectables,Nagpur,15 days
+Harish Gupta,demo.profile.045@pharmaopenings.demo,9900100045,Packing,Blister Packing,Technical Associate,Aurobindo Pharma,B.Pharm,OSD,Vadodara,30 days
+Ashok Verma,demo.profile.046@pharmaopenings.demo,9900100046,Packing,Primary & Secondary Packing,Supervisor,Alkem Laboratories,D.Pharm,OSD; API,Vadodara,45 days
+Karthik Patel,demo.profile.047@pharmaopenings.demo,9900100047,Engineering,HVAC & Utility,Senior Executive,Torrent Pharmaceuticals,M.Sc,API,Bangalore,60 days
+Harsh Desai,demo.profile.048@pharmaopenings.demo,9900100048,Engineering,Process Maintenance,Manager,Torrent Pharmaceuticals,PhD,OSD,Pune,90 days
+Ananya Gupta,demo.profile.049@pharmaopenings.demo,9900100049,Research and Development,Process R&D,Research Scientist,Glenmark Pharmaceuticals,M.Sc,API,Goa,Immediate
+Divya Verma,demo.profile.050@pharmaopenings.demo,9900100050,Formulation Research and Development (FR&D),OSD,Senior Research Scientist,Glenmark Pharmaceuticals,B.Sc,OSD,Vadodara,15 days
+Vikram Patel,demo.profile.051@pharmaopenings.demo,9900100051,Formulation Research and Development (FR&D),Injectables,Manager,Emcure Pharmaceuticals,D.Pharm,Injectables,Delhi NCR,30 days
+Amit Desai,demo.profile.052@pharmaopenings.demo,9900100052,Analytical Research and Development (AR&D),Method Development & Method Validation,Deputy Manager,Emcure Pharmaceuticals,M.Pharm,API,Chennai,45 days
+Sanjay Gupta,demo.profile.053@pharmaopenings.demo,9900100053,Regulatory Affairs,CMC,Manager,Granules India,B.Sc,OSD; API,Delhi NCR,60 days
+Manish Verma,demo.profile.054@pharmaopenings.demo,9900100054,Regulatory Affairs,Documentation,Director,Alembic Pharmaceuticals,B.Sc,OSD,Delhi NCR,90 days
+Harish Patel,demo.profile.055@pharmaopenings.demo,9900100055,Stores & Warehouse & Logistics,,Executive,Cipla,D.Pharm,OSD; Others,Ankleshwar,Immediate
+Ashok Desai,demo.profile.056@pharmaopenings.demo,9900100056,Purchase & Procurement,Raw Material,Senior Executive,Syngene International,M.Pharm,API,Baddi,15 days
+Karthik Gupta,demo.profile.057@pharmaopenings.demo,9900100057,Supply Chain Management,Demand Planning,Assistant Manager,IPCA Laboratories,PhD,OSD; API,Nagpur,30 days
+Harsh Verma,demo.profile.058@pharmaopenings.demo,9900100058,Sales & Marketing,OSD,Manager,Piramal Pharma,B.Pharm,OSD,Kolkata,45 days
+Ananya Patel,demo.profile.059@pharmaopenings.demo,9900100059,Sales & Marketing,Injectables,Senior Manager,Sun Pharmaceutical,B.Sc,Injectables,Ankleshwar,60 days
+Divya Desai,demo.profile.060@pharmaopenings.demo,9900100060,Bio Pharmaceutical Specialist,,Manager,Cipla,D.Pharm,Injectables,Hyderabad,90 days

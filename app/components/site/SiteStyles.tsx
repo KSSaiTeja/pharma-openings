@@ -21,6 +21,7 @@ const MODULE_STYLES = [
   "css/module-css/clients.css",
   "css/module-css/about.css",
   "css/module-css/chooseus.css",
+  "css/module-css/funfact.css",
   "css/module-css/category.css",
   "css/module-css/industries.css",
   "css/module-css/process.css",

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { APPLY_QUALIFICATIONS, JOB_MODULES, JOB_TYPES, STRING_LIMITS } from "@/src/lib/schemas/forms";
+import { JOB_TYPES, STRING_LIMITS } from "@/src/lib/schemas/forms";
 
 const trimmed = z.string().trim();
 
@@ -9,8 +9,8 @@ export const jobCsvMappedOutputSchema = z.object({
   location: trimmed.min(1).max(STRING_LIMITS.location),
   department: trimmed.max(STRING_LIMITS.department).optional().default(""),
   type: z.enum(JOB_TYPES),
-  module: z.enum(JOB_MODULES),
-  qualificationNeeded: z.enum(APPLY_QUALIFICATIONS),
+  module: trimmed.min(1).max(120),
+  qualificationNeeded: trimmed.min(1).max(200),
   description: trimmed.min(1).max(STRING_LIMITS.jobDescription),
 });
 
